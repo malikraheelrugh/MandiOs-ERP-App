@@ -256,12 +256,38 @@ export async function createReturn(req, res) {
           unit = product.unit || 'Crate';
         }
       }
+
+      // Validation: Block produce returns if product, sale, or lot status is 'Submitted for Approval', 'Approved', or 'Accepted'
+      const blockedStatuses = ['submitted for approval', 'approved', 'accepted', 'submitted_for_approval'];
+      const productStatus = (product?.status || product?.approvalStatus || '').trim().toLowerCase();
+      const saleStatus = (sale?.status || sale?.approvalStatus || '').trim().toLowerCase();
+      
+      if (blockedStatuses.includes(productStatus)) {
+        return res.status(400).json({
+          error: `Produce cannot be returned because product '${product?.name || 'Produce'}' status is '${product?.status || product?.approvalStatus}'. Products with status 'Submitted for Approval', 'Approved', or 'Accepted' are not allowed to be returned.`
+        });
+      }
+
+      if (blockedStatuses.includes(saleStatus) && saleStatus !== 'approved' && saleStatus !== 'accepted') {
+        return res.status(400).json({
+          error: `Produce cannot be returned because sale status is '${sale?.status || sale?.approvalStatus}'.`
+        });
+      }
+
       if (sale.stockEntryId) {
         stockEntry = await StockEntry.findById(sale.stockEntryId);
-        if (stockEntry && stockEntry.isSettled) {
-          return res.status(400).json({
-            error: `Cannot return produce or crates from Lot #${stockEntry.lotNumber || String(stockEntry.id || stockEntry._id).substring(0,8).toUpperCase()}. This consignment lot has already been recorded to Payables & Supply Value.`
-          });
+        if (stockEntry) {
+          const stockStatus = (stockEntry.status || stockEntry.approvalStatus || '').trim().toLowerCase();
+          if (blockedStatuses.includes(stockStatus) && stockStatus !== 'approved' && stockStatus !== 'accepted') {
+            return res.status(400).json({
+              error: `Produce cannot be returned because consignment lot status is '${stockEntry.status || stockEntry.approvalStatus}'.`
+            });
+          }
+          if (stockEntry.isSettled) {
+            return res.status(400).json({
+              error: `Cannot return produce or crates from Lot #${stockEntry.lotNumber || String(stockEntry.id || stockEntry._id).substring(0,8).toUpperCase()}. This consignment lot has already been recorded to Payables & Supply Value.`
+            });
+          }
         }
       }
     }
@@ -670,16 +696,22 @@ export async function getCustomerRecentSales(req, res) {
     }
 
     const tenantQuery = buildTenantQuery(req);
-    const [sales, returns, stockEntries] = await Promise.all([
+    const [sales, returns, stockEntries, products] = await Promise.all([
       Sale.find({ ...tenantQuery, customerId }),
       ReturnRecord.find({ ...tenantQuery, customerId, status: { $in: ['Approved', 'Waiting Approval'] }, isDeleted: false }),
-      StockEntry.find(tenantQuery)
+      StockEntry.find(tenantQuery),
+      Product.find(tenantQuery)
     ]);
 
-    // Build settled lot map
+    // Build map for stock and products
     const stockMap = {};
     for (const s of stockEntries) {
       stockMap[String(s.id || s._id)] = s;
+    }
+
+    const productMap = {};
+    for (const p of products) {
+      productMap[String(p.id || p._id)] = p;
     }
 
     // Compute returned qty per sale
@@ -691,20 +723,31 @@ export async function getCustomerRecentSales(req, res) {
       }
     }
 
+    const blockedStatuses = ['submitted for approval', 'approved', 'accepted', 'submitted_for_approval'];
+
     // Decorate sales with return metrics
     const result = sales.map(s => {
       const sId = String(s.id || s._id);
       const stock = s.stockEntryId ? stockMap[String(s.stockEntryId)] : null;
+      const product = s.productId ? productMap[String(s.productId)] : null;
       const isLotSettled = stock?.isSettled || false;
+      
+      const productStatus = (product?.status || product?.approvalStatus || '').trim();
+      const isProductStatusBlocked = blockedStatuses.includes(productStatus.toLowerCase());
+
       const alreadyReturned = returnedMap[sId] || 0;
-      const canReturn = isLotSettled ? 0 : Math.max(0, (Number(s.quantity) || 0) - alreadyReturned);
+      const rawCanReturn = Math.max(0, (Number(s.quantity) || 0) - alreadyReturned);
+      const canReturn = (isLotSettled || isProductStatusBlocked) ? 0 : rawCanReturn;
+
       return {
         id: sId,
         _id: sId,
         saleNumber: sId.substring(0, 8).toUpperCase(),
         date: s.date,
         productId: s.productId,
-        productName: s.productName || 'Produce Lot',
+        productName: s.productName || product?.name || 'Produce Lot',
+        productStatus: productStatus || '',
+        isProductStatusBlocked,
         quantitySold: Number(s.quantity) || 0,
         saleRate: Number(s.saleRate) || 0,
         totalAmount: Number(s.totalAmount) || 0,

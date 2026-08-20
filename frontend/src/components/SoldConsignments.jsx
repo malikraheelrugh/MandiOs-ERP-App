@@ -141,9 +141,18 @@ export default function SoldConsignments({ user, setCurrentTab }) {
     // Calculate raw customer commission and subtract reversed return commission
     const rawBuyerCommission = lotSales.reduce((acc, s) => acc + (s.commissionAmount || s.commission || 0), 0);
     const returnedBuyerCommission = lotReturns.reduce((acc, r) => {
-      const commRate = Number(r.commissionRate) || 0;
-      const retGross = Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0));
-      return acc + (retGross * (commRate / 100));
+      let rev = Number(r.commissionReversedAmount) || 0;
+      if (!rev && Number(r.produceReturnedQty) > 0) {
+        const matchingSale = lotSales.find(s => String(s.id || s._id) === String(r.saleId));
+        if (matchingSale && matchingSale.quantity > 0 && matchingSale.commissionAmount > 0) {
+          rev = Number(r.produceReturnedQty) * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+        } else {
+          const commRate = parseFloat(String(r.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+          const retGross = Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0));
+          rev = retGross * (commRate / 100);
+        }
+      }
+      return acc + (rev || 0);
     }, 0);
     const totalCommission = Math.max(0, Math.round((rawBuyerCommission - returnedBuyerCommission) * 100) / 100);
 
@@ -178,16 +187,31 @@ export default function SoldConsignments({ user, setCurrentTab }) {
 
     // Deduct returns from corresponding date group
     lotReturns.forEach(r => {
-      const rDate = r.date || 'Unknown Date';
+      const matchingSale = lotSales.find(s => String(s.id || s._id) === String(r.saleId));
+      const rDate = matchingSale?.date || r.date || 'Unknown Date';
       const rQty = Number(r.produceReturnedQty) || 0;
       const rGross = Number(r.grossReturnAmount) || (rQty * Number(r.saleRate || 0));
-      const rCommRate = Number(r.commissionRate) || 0;
-      const rComm = rGross * (rCommRate / 100);
+      let rComm = Number(r.commissionReversedAmount) || 0;
+      if (!rComm && rQty > 0) {
+        if (matchingSale && matchingSale.quantity > 0 && matchingSale.commissionAmount > 0) {
+          rComm = rQty * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+        } else {
+          const commRate = parseFloat(String(r.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+          rComm = rGross * (commRate / 100);
+        }
+      }
 
       if (dateGroupsMap[rDate]) {
         dateGroupsMap[rDate].totalQty = Math.max(0, dateGroupsMap[rDate].totalQty - rQty);
         dateGroupsMap[rDate].grossValue = Math.max(0, dateGroupsMap[rDate].grossValue - rGross);
-        dateGroupsMap[rDate].commission = Math.max(0, dateGroupsMap[rDate].commission - rComm);
+        dateGroupsMap[rDate].commission = Math.max(0, Math.round((dateGroupsMap[rDate].commission - rComm) * 100) / 100);
+      } else {
+        const altDate = r.date || 'Unknown Date';
+        if (dateGroupsMap[altDate]) {
+          dateGroupsMap[altDate].totalQty = Math.max(0, dateGroupsMap[altDate].totalQty - rQty);
+          dateGroupsMap[altDate].grossValue = Math.max(0, dateGroupsMap[altDate].grossValue - rGross);
+          dateGroupsMap[altDate].commission = Math.max(0, Math.round((dateGroupsMap[altDate].commission - rComm) * 100) / 100);
+        }
       }
     });
 
@@ -242,9 +266,18 @@ export default function SoldConsignments({ user, setCurrentTab }) {
 
       const rawBuyerCommission = lotSales.reduce((acc, s) => acc + (s.commissionAmount || s.commission || 0), 0);
       const returnedBuyerCommission = lotReturns.reduce((acc, r) => {
-        const commRate = Number(r.commissionRate) || 0;
-        const retGross = Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0));
-        return acc + (retGross * (commRate / 100));
+        let rev = Number(r.commissionReversedAmount) || 0;
+        if (!rev && Number(r.produceReturnedQty) > 0) {
+          const matchingSale = lotSales.find(s => String(s.id || s._id) === String(r.saleId));
+          if (matchingSale && matchingSale.quantity > 0 && matchingSale.commissionAmount > 0) {
+            rev = Number(r.produceReturnedQty) * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+          } else {
+            const commRate = parseFloat(String(r.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+            const retGross = Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0));
+            rev = retGross * (commRate / 100);
+          }
+        }
+        return acc + (rev || 0);
       }, 0);
       const totalCommission = Math.max(0, Math.round((rawBuyerCommission - returnedBuyerCommission) * 100) / 100);
 
@@ -273,16 +306,31 @@ export default function SoldConsignments({ user, setCurrentTab }) {
 
       // Deduct returns from date groups
       lotReturns.forEach(r => {
-        const rDate = r.date || 'Unknown Date';
+        const matchingSale = lotSales.find(s => String(s.id || s._id) === String(r.saleId));
+        const rDate = matchingSale?.date || r.date || 'Unknown Date';
         const rQty = Number(r.produceReturnedQty) || 0;
         const rGross = Number(r.grossReturnAmount) || (rQty * Number(r.saleRate || 0));
-        const rCommRate = Number(r.commissionRate) || 0;
-        const rComm = rGross * (rCommRate / 100);
+        let rComm = Number(r.commissionReversedAmount) || 0;
+        if (!rComm && rQty > 0) {
+          if (matchingSale && matchingSale.quantity > 0 && matchingSale.commissionAmount > 0) {
+            rComm = rQty * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+          } else {
+            const commRate = parseFloat(String(r.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+            rComm = rGross * (commRate / 100);
+          }
+        }
 
         if (dateGroupsMap[rDate]) {
           dateGroupsMap[rDate].totalQty = Math.max(0, dateGroupsMap[rDate].totalQty - rQty);
           dateGroupsMap[rDate].grossValue = Math.max(0, dateGroupsMap[rDate].grossValue - rGross);
-          dateGroupsMap[rDate].commission = Math.max(0, dateGroupsMap[rDate].commission - rComm);
+          dateGroupsMap[rDate].commission = Math.max(0, Math.round((dateGroupsMap[rDate].commission - rComm) * 100) / 100);
+        } else {
+          const altDate = r.date || 'Unknown Date';
+          if (dateGroupsMap[altDate]) {
+            dateGroupsMap[altDate].totalQty = Math.max(0, dateGroupsMap[altDate].totalQty - rQty);
+            dateGroupsMap[altDate].grossValue = Math.max(0, dateGroupsMap[altDate].grossValue - rGross);
+            dateGroupsMap[altDate].commission = Math.max(0, Math.round((dateGroupsMap[altDate].commission - rComm) * 100) / 100);
+          }
         }
       });
 
