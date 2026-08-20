@@ -13,5 +13,21 @@
     "_id": "lmr6htjks",
     "createdAt": "2026-08-20T00:27:19.030Z",
     "updatedAt": "2026-08-20T01:11:18.174Z"
+  },
+  {
+    "tenantId": "tenant_default_001",
+    "userId": "gyzr08t0v",
+    "khataId": "MR-S-1",
+    "name": "Rana Sahib",
+    "phone": "03488718509",
+    "address": "rugh tehsil phalia district Mandi-Bahauddin",
+    "currentBalance": 60000,
+    "totalSupplied": 0,
+    "totalPaid": 0,
+    "remainingBalance": 60000,
+    "id": "goamqqov3",
+    "_id": "goamqqov3",
+    "createdAt": "2026-08-20T10:55:56.432Z",
+    "updatedAt": "2026-08-20T11:10:34.343Z"
   }
 ]

@@ -3,70 +3,70 @@
     "_id": "uioijrke7",
     "id": "uioijrke7",
     "email": "superadmin@mandios.com",
-    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.sW3On8OavispnXF/VM6qPe/JsNoyV1q",
+    "password": "$2b$10$VpfkMF.mDGgg9kl/OIwGCuUKxwz9xMCMItNoUOBzlp/5PNVGD0jiq",
     "name": "MandiOS Super Admin",
     "phone": "03000000000",
     "role": "super_admin",
     "address": "MandiOS HQ, Lahore",
     "status": "Active",
     "createdAt": "2026-07-24T13:27:39.437Z",
-    "updatedAt": "2026-08-19T15:26:56.368Z"
+    "updatedAt": "2026-08-20T14:08:26.070Z"
   },
   {
     "_id": "mxu5436na",
     "id": "mxu5436na",
     "tenantId": "tenant_default_001",
     "email": "admin@mandi.com",
-    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.TorwviHZSeZXu9dKj/XOjT4Y0dujuXG",
+    "password": "$2b$10$VpfkMF.mDGgg9kl/OIwGCufhL0.jNCifO0kg2B8sz4iQdNuVGPnfq",
     "name": "Mian Rashid (Admin)",
     "phone": "03001234567",
     "role": "Admin",
     "address": "Shop 12, Fruit Market, Lahore",
     "status": "Active",
     "createdAt": "2026-07-18T10:26:17.281Z",
-    "updatedAt": "2026-08-19T15:26:56.372Z"
+    "updatedAt": "2026-08-20T14:08:26.084Z"
   },
   {
     "_id": "f67xoaxb3",
     "id": "f67xoaxb3",
     "tenantId": "tenant_default_001",
     "email": "clerk@mandi.com",
-    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.XEh1rc8auDcPZJDKqU6WS.QeVqD2qDm",
+    "password": "$2b$10$VpfkMF.mDGgg9kl/OIwGCuQOZlGKnyQaRtbzTKBEFWxaz.Iymcze2",
     "name": "Sajid Khan (Clerk)",
     "phone": "03117654321",
     "role": "Clerk",
     "address": "Samanabad, Lahore",
     "status": "Active",
     "createdAt": "2026-07-18T10:26:17.282Z",
-    "updatedAt": "2026-08-19T15:26:56.374Z"
+    "updatedAt": "2026-08-20T14:08:26.088Z"
   },
   {
     "_id": "supplier1_id",
     "id": "supplier1_id",
     "tenantId": "tenant_default_001",
     "email": "supplier1@mandi.com",
-    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.WpLhnXprAOkfrT1R/UTdp.Qjx7pO5Xu",
+    "password": "$2b$10$VpfkMF.mDGgg9kl/OIwGCuDbeT4Yyf7Ric/oZuGVgb0z5eDYpwQVW",
     "name": "Ahmad Nawaz (Supplier)",
     "phone": "03215551212",
     "role": "Supplier",
     "address": "Mandi Bahauddin Farm",
     "status": "Active",
     "createdAt": "2026-07-24T13:27:39.442Z",
-    "updatedAt": "2026-08-19T15:26:56.377Z"
+    "updatedAt": "2026-08-20T14:08:26.092Z"
   },
   {
     "_id": "customer1_id",
     "id": "customer1_id",
     "tenantId": "tenant_default_001",
     "email": "customer1@mandi.com",
-    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.aYvtzT8OiqcGw/aCtLfIkL8C.2fF/mm",
+    "password": "$2b$10$VpfkMF.mDGgg9kl/OIwGCuc7HAtRD3rGtxKMBbrN1hc/fb09pYo1G",
     "name": "Karachi Fruit Mart (Customer)",
     "phone": "03334445555",
     "role": "Customer",
     "address": "Sabzi Mandi Super Highway, Karachi",
     "status": "Active",
     "createdAt": "2026-07-24T13:27:39.442Z",
-    "updatedAt": "2026-08-19T15:26:56.380Z"
+    "updatedAt": "2026-08-20T14:08:26.096Z"
   },
   {
     "tenantId": "tenant_default_001",
@@ -80,7 +80,8 @@
     "id": "wpts9xa5q",
     "_id": "wpts9xa5q",
     "createdAt": "2026-08-20T00:26:39.759Z",
-    "updatedAt": "2026-08-20T00:26:39.759Z"
+    "updatedAt": "2026-08-20T10:49:22.049Z",
+    "khataId": "MR-C-0"
   },
   {
     "tenantId": "tenant_default_001",
@@ -95,5 +96,34 @@
     "_id": "bisw2gsw5",
     "createdAt": "2026-08-20T00:27:19.027Z",
     "updatedAt": "2026-08-20T00:27:19.027Z"
+  },
+  {
+    "tenantId": "tenant_default_001",
+    "name": "abdul ghafoor",
+    "phone": "03495780815",
+    "address": "rehman garden near shahdara",
+    "khataId": "MR-C-1",
+    "role": "Customer",
+    "status": "Active",
+    "email": "abdulghafoor@gmail.com",
+    "password": "$2b$10$fUJeTb3ODH3LZyT9O3P13e0nWDxKp0SPYMdnCqW5EmMQ3UOjcXT.2",
+    "id": "at7j1zr3a",
+    "_id": "at7j1zr3a",
+    "createdAt": "2026-08-20T10:45:45.978Z",
+    "updatedAt": "2026-08-20T10:48:04.748Z"
+  },
+  {
+    "tenantId": "tenant_default_001",
+    "name": "Rana Sahib",
+    "phone": "03488718509",
+    "address": "rugh tehsil phalia district Mandi-Bahauddin",
+    "khataId": "MR-S-1",
+    "role": "Supplier",
+    "status": "Active",
+    "password": "$2b$10$mwHJ9Zthz3aEO.eMXRh5su4HPgLf0mwFBuwTPvaP7oGVjLyvdPPei",
+    "id": "gyzr08t0v",
+    "_id": "gyzr08t0v",
+    "createdAt": "2026-08-20T10:55:56.429Z",
+    "updatedAt": "2026-08-20T10:55:56.429Z"
   }
 ]

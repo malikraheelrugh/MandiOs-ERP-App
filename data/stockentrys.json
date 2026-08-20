@@ -14,5 +14,37 @@
     "_id": "u1dpebcq6",
     "createdAt": "2026-08-20T00:29:25.274Z",
     "updatedAt": "2026-08-20T01:11:18.160Z"
+  },
+  {
+    "tenantId": "tenant_default_001",
+    "supplierId": "goamqqov3",
+    "supplierName": "Rana Sahib",
+    "productId": "m4wrsgyty",
+    "productName": "Kala kulu apple",
+    "quantity": 100,
+    "remainingQuantity": 90,
+    "purchaseRate": 510,
+    "date": "2026-08-20",
+    "totalAmount": 51000,
+    "id": "pxj07veo5",
+    "_id": "pxj07veo5",
+    "createdAt": "2026-08-20T10:58:39.097Z",
+    "updatedAt": "2026-08-20T11:03:57.372Z"
+  },
+  {
+    "tenantId": "tenant_default_001",
+    "supplierId": "goamqqov3",
+    "supplierName": "Rana Sahib",
+    "productId": "1iifgmd3q",
+    "productName": "Sindhri Mangoes",
+    "quantity": 100,
+    "remainingQuantity": 100,
+    "purchaseRate": 100,
+    "date": "2026-08-20",
+    "totalAmount": 10000,
+    "id": "ej30wszdq",
+    "_id": "ej30wszdq",
+    "createdAt": "2026-08-20T11:07:58.700Z",
+    "updatedAt": "2026-08-20T11:10:34.341Z"
   }
 ]
