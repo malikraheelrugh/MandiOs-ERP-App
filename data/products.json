@@ -1,0 +1,22 @@
+[
+  {
+    "tenantId": "tenant_default_001",
+    "name": "Apple",
+    "category": "Fruits",
+    "unit": "Crate",
+    "currentQuantity": 100,
+    "purchaseRate": 0,
+    "saleRate": 500,
+    "status": "Active",
+    "defaultCommission": 5,
+    "commissionType": "Percentage",
+    "defaultUnit": "Crate",
+    "averageWeight": 0,
+    "minPrice": 0,
+    "maxPrice": 0,
+    "id": "lwmgrcn2l",
+    "_id": "lwmgrcn2l",
+    "createdAt": "2026-08-20T00:28:22.588Z",
+    "updatedAt": "2026-08-20T01:11:18.124Z"
+  }
+]

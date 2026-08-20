@@ -1,0 +1,32 @@
+[
+  {
+    "tenantId": "tenant_default_001",
+    "businessName": "Sabzi & Fruit Mandi Trade Brokerage",
+    "ownerName": "Mian Rashid (Admin)",
+    "email": "admin@mandi.com",
+    "mobileNumber": "03001234567",
+    "whatsAppNumber": "03001234567",
+    "address": "Shop 12, Fruit Market",
+    "city": "Lahore",
+    "country": "Pakistan",
+    "id": "ktjzpb8mt",
+    "_id": "ktjzpb8mt",
+    "createdAt": "2026-08-20T00:31:15.786Z",
+    "updatedAt": "2026-08-20T00:31:15.786Z"
+  },
+  {
+    "tenantId": "bussiness-12",
+    "businessName": "Sabzi & Fruit Mandi Trade Brokerage",
+    "ownerName": "Mian Rashid (Admin)",
+    "email": "",
+    "mobileNumber": "",
+    "whatsAppNumber": "",
+    "address": "",
+    "city": "",
+    "country": "Pakistan",
+    "id": "fsskdtteu",
+    "_id": "fsskdtteu",
+    "createdAt": "2026-08-20T04:06:22.745Z",
+    "updatedAt": "2026-08-20T04:06:22.745Z"
+  }
+]

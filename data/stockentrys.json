@@ -1,0 +1,18 @@
+[
+  {
+    "tenantId": "tenant_default_001",
+    "supplierId": "lmr6htjks",
+    "supplierName": "Bhatti Traders",
+    "productId": "lwmgrcn2l",
+    "productName": "Apple",
+    "quantity": 100,
+    "remainingQuantity": 100,
+    "purchaseRate": 150,
+    "date": "2026-08-20",
+    "totalAmount": 15000,
+    "id": "u1dpebcq6",
+    "_id": "u1dpebcq6",
+    "createdAt": "2026-08-20T00:29:25.274Z",
+    "updatedAt": "2026-08-20T01:11:18.160Z"
+  }
+]

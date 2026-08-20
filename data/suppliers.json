@@ -1,0 +1,17 @@
+[
+  {
+    "tenantId": "tenant_default_001",
+    "userId": "bisw2gsw5",
+    "name": "Bhatti Traders",
+    "phone": "03356534786",
+    "address": "helan tehsil phalia district Mandi Bahauddin",
+    "currentBalance": 15000,
+    "totalSupplied": 0,
+    "totalPaid": 0,
+    "remainingBalance": 15000,
+    "id": "lmr6htjks",
+    "_id": "lmr6htjks",
+    "createdAt": "2026-08-20T00:27:19.030Z",
+    "updatedAt": "2026-08-20T01:11:18.174Z"
+  }
+]

@@ -3,69 +3,97 @@
     "_id": "uioijrke7",
     "id": "uioijrke7",
     "email": "superadmin@mandios.com",
-    "password": "$2b$10$Qyt/PHpOVpYHglbFdMbyMOoqSAQvkegbb.CsFT1VCuYDNkU5B9mhu",
+    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.sW3On8OavispnXF/VM6qPe/JsNoyV1q",
     "name": "MandiOS Super Admin",
     "phone": "03000000000",
     "role": "super_admin",
     "address": "MandiOS HQ, Lahore",
     "status": "Active",
     "createdAt": "2026-07-24T13:27:39.437Z",
-    "updatedAt": "2026-07-24T14:04:59.394Z"
+    "updatedAt": "2026-08-19T15:26:56.368Z"
   },
   {
     "_id": "mxu5436na",
     "id": "mxu5436na",
     "tenantId": "tenant_default_001",
     "email": "admin@mandi.com",
-    "password": "$2b$10$Qyt/PHpOVpYHglbFdMbyMOnPUCJRv/bSQ0UAxYqJBq6PUvr.qJ2ni",
+    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.TorwviHZSeZXu9dKj/XOjT4Y0dujuXG",
     "name": "Mian Rashid (Admin)",
     "phone": "03001234567",
     "role": "Admin",
     "address": "Shop 12, Fruit Market, Lahore",
     "status": "Active",
     "createdAt": "2026-07-18T10:26:17.281Z",
-    "updatedAt": "2026-07-24T14:04:59.396Z"
+    "updatedAt": "2026-08-19T15:26:56.372Z"
   },
   {
     "_id": "f67xoaxb3",
     "id": "f67xoaxb3",
     "tenantId": "tenant_default_001",
     "email": "clerk@mandi.com",
-    "password": "$2b$10$Qyt/PHpOVpYHglbFdMbyMOyUIMdxLCGUrJx42ZVPcaxQU4/T5sU4q",
+    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.XEh1rc8auDcPZJDKqU6WS.QeVqD2qDm",
     "name": "Sajid Khan (Clerk)",
     "phone": "03117654321",
     "role": "Clerk",
     "address": "Samanabad, Lahore",
     "status": "Active",
     "createdAt": "2026-07-18T10:26:17.282Z",
-    "updatedAt": "2026-07-24T14:04:59.397Z"
+    "updatedAt": "2026-08-19T15:26:56.374Z"
   },
   {
     "_id": "supplier1_id",
     "id": "supplier1_id",
     "tenantId": "tenant_default_001",
     "email": "supplier1@mandi.com",
-    "password": "$2b$10$Qyt/PHpOVpYHglbFdMbyMOoqSAQvkegbb.CsFT1VCuYDNkU5B9mhu",
+    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.WpLhnXprAOkfrT1R/UTdp.Qjx7pO5Xu",
     "name": "Ahmad Nawaz (Supplier)",
     "phone": "03215551212",
     "role": "Supplier",
     "address": "Mandi Bahauddin Farm",
     "status": "Active",
     "createdAt": "2026-07-24T13:27:39.442Z",
-    "updatedAt": "2026-07-24T13:27:39.442Z"
+    "updatedAt": "2026-08-19T15:26:56.377Z"
   },
   {
     "_id": "customer1_id",
     "id": "customer1_id",
     "tenantId": "tenant_default_001",
     "email": "customer1@mandi.com",
-    "password": "$2b$10$Qyt/PHpOVpYHglbFdMbyMOoqSAQvkegbb.CsFT1VCuYDNkU5B9mhu",
+    "password": "$2b$10$AyGgMIMvV/YLA9PMNG5UH.aYvtzT8OiqcGw/aCtLfIkL8C.2fF/mm",
     "name": "Karachi Fruit Mart (Customer)",
     "phone": "03334445555",
     "role": "Customer",
     "address": "Sabzi Mandi Super Highway, Karachi",
     "status": "Active",
     "createdAt": "2026-07-24T13:27:39.442Z",
-    "updatedAt": "2026-07-24T13:27:39.442Z"
+    "updatedAt": "2026-08-19T15:26:56.380Z"
+  },
+  {
+    "tenantId": "tenant_default_001",
+    "name": "Raheel Abbas",
+    "phone": "03495780815",
+    "address": "rehman garden near shahdara",
+    "role": "Customer",
+    "status": "Active",
+    "email": "raheelrugh77@gmail.com",
+    "password": "$2b$10$UFFBIWIYxVzyD5vPenjOfumwYF0.eUCXHdXKVB8.ypRqenysZPQmy",
+    "id": "wpts9xa5q",
+    "_id": "wpts9xa5q",
+    "createdAt": "2026-08-20T00:26:39.759Z",
+    "updatedAt": "2026-08-20T00:26:39.759Z"
+  },
+  {
+    "tenantId": "tenant_default_001",
+    "name": "Bhatti Traders",
+    "phone": "03356534786",
+    "address": "helan tehsil phalia district Mandi Bahauddin",
+    "role": "Supplier",
+    "status": "Active",
+    "email": "bhatti@gmail.com",
+    "password": "$2b$10$4pm0ZdnPLsZyLV6jRAUraudLf6.1fh9JyX7AXLIQoz7p2aDaNwYou",
+    "id": "bisw2gsw5",
+    "_id": "bisw2gsw5",
+    "createdAt": "2026-08-20T00:27:19.027Z",
+    "updatedAt": "2026-08-20T00:27:19.027Z"
   }
 ]

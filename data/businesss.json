@@ -1,0 +1,24 @@
+[
+  {
+    "businessName": "Sabzi & Fruit Mandi Trade Brokerage",
+    "businessCode": "BUS-1001",
+    "ownerName": "Mian Rashid (Admin)",
+    "email": "admin@mandi.com",
+    "phone": "03001234567",
+    "address": "Shop 12, Fruit Market",
+    "city": "Lahore",
+    "country": "Pakistan",
+    "tenantId": "tenant_default_001",
+    "subscriptionPlan": "Enterprise",
+    "subscriptionStatus": "Active",
+    "subscriptionStartDate": "2026-08-19",
+    "subscriptionExpiryDate": "2030-12-31",
+    "maxUsers": 50,
+    "isActive": true,
+    "isDeleted": false,
+    "id": "40p6tvwdc",
+    "_id": "40p6tvwdc",
+    "createdAt": "2026-08-19T15:26:56.381Z",
+    "updatedAt": "2026-08-19T15:26:56.381Z"
+  }
+]

@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "tenantId": "tenant_default_001",
+    "userId": "wpts9xa5q",
+    "name": "Raheel Abbas",
+    "phone": "03495780815",
+    "address": "rehman garden near shahdara",
+    "referenceBy": "",
+    "currentBalance": 0,
+    "totalPurchases": 0,
+    "totalPaid": 0,
+    "remainingBalance": 0,
+    "id": "zy6zdcph0",
+    "_id": "zy6zdcph0",
+    "createdAt": "2026-08-20T00:26:39.759Z",
+    "updatedAt": "2026-08-20T01:11:18.139Z"
+  }
+]

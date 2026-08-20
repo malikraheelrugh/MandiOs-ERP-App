@@ -1,0 +1,22 @@
+[
+  {
+    "tenantId": "tenant_default_001",
+    "companyLogo": "",
+    "header": "COMMISSION AGENT & WHOLESALE BROKER",
+    "footer": "Thank you for your business!",
+    "id": "jjadmp4rc",
+    "_id": "jjadmp4rc",
+    "createdAt": "2026-08-20T00:23:53.932Z",
+    "updatedAt": "2026-08-20T00:23:53.932Z"
+  },
+  {
+    "tenantId": "bussiness-12",
+    "companyLogo": "",
+    "header": "COMMISSION AGENT & WHOLESALE BROKER",
+    "footer": "Thank you for your business!",
+    "id": "g5xijw7d9",
+    "_id": "g5xijw7d9",
+    "createdAt": "2026-08-20T04:04:17.684Z",
+    "updatedAt": "2026-08-20T04:04:17.684Z"
+  }
+]
