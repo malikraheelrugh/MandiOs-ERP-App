@@ -1,25 +1,84 @@
 import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
-import { User, Business, AuditLog } from '../models/index.js';
+import { User, Business, AuditLog, Customer, Supplier } from '../models/index.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mandi-secret-key-123!';
 
 export async function login(req, res) {
   try {
-    const { email, password, role } = req.body;
+    const rawIdentifier = req.body.identifier || req.body.khataId || req.body.email;
+    const { password, role } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Please provide email and password.' });
+    const isParty = role === 'Customer' || role === 'Supplier';
+
+    if (!rawIdentifier || !password) {
+      return res.status(400).json({ 
+        error: isParty ? 'Please provide Khata ID and password.' : 'Please provide email and password.' 
+      });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanInput = rawIdentifier.trim();
+    const cleanLower = cleanInput.toLowerCase();
+    const cleanUpper = cleanInput.toUpperCase();
 
-    // Case-insensitive user lookup
+    // Prevent Customer and Supplier from logging in with an email address
+    if (isParty && cleanInput.includes('@')) {
+      return res.status(400).json({
+        error: `${role} accounts can only log in using their assigned Khata ID (e.g. SFM-C-1). Email login is not allowed for ${role}s.`
+      });
+    }
+
     const allUsers = await User.find({});
-    const user = allUsers.find(u => u.email && u.email.trim().toLowerCase() === cleanEmail);
+    let user = null;
+
+    if (isParty) {
+      // Strictly lookup by Khata ID for Customer and Supplier
+      user = allUsers.find(u => 
+        u.role?.toLowerCase() === role.toLowerCase() &&
+        u.khataId && u.khataId.trim().toUpperCase() === cleanUpper
+      );
+
+      // If not directly on User object, check linked Customer/Supplier collection by Khata ID
+      if (!user && role === 'Customer') {
+        const allCustomers = await Customer.find({ isDeleted: { $ne: true } });
+        const matchedCust = allCustomers.find(c => c.khataId && c.khataId.trim().toUpperCase() === cleanUpper);
+        if (matchedCust && matchedCust.userId) {
+          user = allUsers.find(u => (u.id === matchedCust.userId || u._id?.toString() === matchedCust.userId));
+        }
+      } else if (!user && role === 'Supplier') {
+        const allSuppliers = await Supplier.find({ isDeleted: { $ne: true } });
+        const matchedSupp = allSuppliers.find(s => s.khataId && s.khataId.trim().toUpperCase() === cleanUpper);
+        if (matchedSupp && matchedSupp.userId) {
+          user = allUsers.find(u => (u.id === matchedSupp.userId || u._id?.toString() === matchedSupp.userId));
+        }
+      }
+
+      // Demo seed fallback by Khata ID only
+      if (!user) {
+        if (role === 'Customer' && cleanUpper === 'SFM-C-1') {
+          user = allUsers.find(u => u.role === 'Customer');
+        } else if (role === 'Supplier' && cleanUpper === 'SFM-S-1') {
+          user = allUsers.find(u => u.role === 'Supplier');
+        }
+      }
+    } else {
+      // For Admin, Clerk, and Super Admin, lookup strictly by email
+      user = allUsers.find(u => 
+        u.email && u.email.trim().toLowerCase() === cleanLower
+      );
+
+      // If a Customer or Supplier account tries to log in with email without selecting role, disallow customer/supplier email login
+      if (user && (user.role === 'Customer' || user.role === 'Supplier')) {
+        return res.status(403).json({
+          error: `${user.role}s must select "${user.role}" role and log in using their Khata ID (${user.khataId || 'assigned ID'}). Email login is disabled for ${user.role}s.`
+        });
+      }
+    }
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
+      return res.status(401).json({ 
+        error: isParty ? 'Invalid Khata ID or password.' : 'Invalid email or password.' 
+      });
     }
 
     // Check soft deletion
@@ -33,7 +92,7 @@ export async function login(req, res) {
     }
 
     // Role check (allow super_admin if user is super_admin regardless of dropdown role)
-    const isSuperAdmin = user.role === 'super_admin' || user.role === 'Super Admin' || cleanEmail === 'superadmin@mandios.com';
+    const isSuperAdmin = user.role === 'super_admin' || user.role === 'Super Admin' || cleanLower === 'superadmin@mandios.com';
     if (!isSuperAdmin && role && user.role.toLowerCase() !== role.toLowerCase()) {
       return res.status(401).json({ error: `Selected role (${role}) does not match your registered profile.` });
     }
@@ -51,21 +110,24 @@ export async function login(req, res) {
     if (!isMatch) {
       if (password.trim() === user.password) {
         isMatch = true;
-      } else if (cleanEmail === 'superadmin@mandios.com' && password.trim() === 'super123') {
+      } else if (cleanLower === 'superadmin@mandios.com' && password.trim() === 'super123') {
         isMatch = true;
-      } else if (cleanEmail === 'admin@mandi.com' && password.trim() === 'admin123') {
+      } else if (cleanLower === 'admin@mandi.com' && password.trim() === 'admin123') {
         isMatch = true;
-      } else if (cleanEmail === 'clerk@mandi.com' && password.trim() === 'clerk123') {
+      } else if (cleanLower === 'clerk@mandi.com' && password.trim() === 'clerk123') {
         isMatch = true;
-      } else if (cleanEmail === 'supplier1@mandi.com' && password.trim() === 'supplier123') {
+      } else if ((cleanLower === 'supplier1@mandi.com' || cleanUpper === 'SFM-S-1') && password.trim() === 'supplier123') {
         isMatch = true;
-      } else if (cleanEmail === 'customer1@mandi.com' && password.trim() === 'customer123') {
+      } else if ((cleanLower === 'customer1@mandi.com' || cleanUpper === 'SFM-C-1') && password.trim() === 'customer123') {
         isMatch = true;
       }
     }
 
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
+      const isParty = user.role === 'Customer' || user.role === 'Supplier';
+      return res.status(401).json({ 
+        error: isParty ? 'Invalid Khata ID or password.' : 'Invalid email or password.' 
+      });
     }
 
     // Business tenant status check for non-super_admin users
@@ -87,11 +149,22 @@ export async function login(req, res) {
       }
     }
 
+    // Fetch Khata ID if not directly attached
+    let userKhataId = user.khataId || '';
+    if (!userKhataId && user.role === 'Customer') {
+      const cust = await Customer.findOne({ userId: user.id || user._id });
+      if (cust && cust.khataId) userKhataId = cust.khataId;
+    } else if (!userKhataId && user.role === 'Supplier') {
+      const supp = await Supplier.findOne({ userId: user.id || user._id });
+      if (supp && supp.khataId) userKhataId = supp.khataId;
+    }
+
     // Generate JWT
     const token = jwt.sign(
       {
         id: user.id || user._id,
         email: user.email,
+        khataId: userKhataId,
         name: user.name,
         role: user.role,
         tenantId: user.tenantId || (user.role === 'super_admin' ? null : 'tenant_default_001')
@@ -107,7 +180,7 @@ export async function login(req, res) {
       userName: user.name,
       userRole: user.role,
       action: 'LOGIN',
-      details: `User logged in as ${user.role}.`,
+      details: `User logged in as ${user.role}${userKhataId ? ` (Khata ID: ${userKhataId})` : ''}.`,
       timestamp: new Date().toISOString(),
     });
 
@@ -116,6 +189,7 @@ export async function login(req, res) {
       user: {
         id: user.id || user._id,
         email: user.email,
+        khataId: userKhataId,
         name: user.name,
         role: user.role,
         phone: user.phone,
@@ -136,9 +210,20 @@ export async function getProfile(req, res) {
     if (!user) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
+
+    let userKhataId = user.khataId || '';
+    if (!userKhataId && user.role === 'Customer') {
+      const cust = await Customer.findOne({ userId: user.id || user._id });
+      if (cust && cust.khataId) userKhataId = cust.khataId;
+    } else if (!userKhataId && user.role === 'Supplier') {
+      const supp = await Supplier.findOne({ userId: user.id || user._id });
+      if (supp && supp.khataId) userKhataId = supp.khataId;
+    }
+
     res.json({
       id: user.id || user._id,
       email: user.email,
+      khataId: userKhataId,
       name: user.name,
       role: user.role,
       phone: user.phone,

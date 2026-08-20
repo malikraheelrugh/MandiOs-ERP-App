@@ -8,6 +8,7 @@ const BusinessSchema = new Schema({
   _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
   businessName: { type: String, required: true },
   businessCode: { type: String },
+  arthiCode: { type: String, uppercase: true, trim: true },
   ownerName: { type: String, required: true },
   email: { type: String, required: true },
   phone: { type: String, default: '' },
@@ -41,6 +42,7 @@ const UserSchema = new Schema({
   _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
   tenantId: { type: String }, // Optional for super_admin, required for tenant users
   email: { type: String, sparse: true },
+  khataId: { type: String, uppercase: true, trim: true },
   password: { type: String },
   name: { type: String, required: true },
   phone: { type: String, required: true },
@@ -77,6 +79,7 @@ const SupplierSchema = new Schema({
   _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
   tenantId: { type: String, default: 'tenant_default_001' },
   userId: { type: String, ref: 'User' },
+  khataId: { type: String, uppercase: true, trim: true },
   name: { type: String, required: true },
   phone: { type: String, required: true },
   address: { type: String },
@@ -95,6 +98,7 @@ const CustomerSchema = new Schema({
   _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
   tenantId: { type: String, default: 'tenant_default_001' },
   userId: { type: String, ref: 'User' },
+  khataId: { type: String, uppercase: true, trim: true },
   name: { type: String, required: true },
   phone: { type: String, required: true },
   address: { type: String },
@@ -293,6 +297,14 @@ const SalaryAdvanceSchema = new Schema({
   isDeleted: { type: Boolean, default: false },
 }, { timestamps: true });
 
+// 15. Counter Schema (Atomic Khata ID Sequences)
+const CounterSchema = new Schema({
+  _id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+  tenantId: { type: String, required: true },
+  role: { type: String, required: true, enum: ['Customer', 'Supplier'] },
+  seq: { type: Number, default: 0 },
+}, { timestamps: true });
+
 // Compile Mongoose Models (only if mongoose is used)
 const MongooseBusiness = mongoose.models.Business || mongoose.model('Business', BusinessSchema);
 const MongooseGlobalSettings = mongoose.models.GlobalSettings || mongoose.model('GlobalSettings', GlobalSettingsSchema);
@@ -310,6 +322,7 @@ const MongooseTruck = mongoose.models.Truck || mongoose.model('Truck', TruckSche
 const MongooseEmployee = mongoose.models.Employee || mongoose.model('Employee', EmployeeSchema);
 const MongooseSalary = mongoose.models.Salary || mongoose.model('Salary', SalarySchema);
 const MongooseSalaryAdvance = mongoose.models.SalaryAdvance || mongoose.model('SalaryAdvance', SalaryAdvanceSchema);
+const MongooseCounter = mongoose.models.Counter || mongoose.model('Counter', CounterSchema);
 
 // Create and export Wrapped Models
 export const Business = new ModelWrapper('Business', MongooseBusiness);
@@ -328,5 +341,6 @@ export const Truck = new ModelWrapper('Truck', MongooseTruck);
 export const Employee = new ModelWrapper('Employee', MongooseEmployee);
 export const Salary = new ModelWrapper('Salary', MongooseSalary);
 export const SalaryAdvance = new ModelWrapper('SalaryAdvance', MongooseSalaryAdvance);
+export const Counter = new ModelWrapper('Counter', MongooseCounter);
 export { ReturnRecord } from './returnModel.js';
 

@@ -1,6 +1,7 @@
 import bcryptjs from 'bcryptjs';
 import { Business, GlobalSettings, User, Customer, Supplier, Sale, AuditLog } from '../models/index.js';
 import { BusinessSettings } from '../models/settings.js';
+import { generateSuggestedArthiCode, validateArthiCode } from '../utils/counter.js';
 
 // 1. Get List of All Businesses
 export async function getBusinesses(req, res) {
@@ -15,11 +16,13 @@ export async function getBusinesses(req, res) {
       const planVal = biz.plan || biz.subscriptionPlan || 'Pro';
       const statusVal = biz.status || biz.subscriptionStatus || (biz.isActive !== false ? 'Active' : 'Suspended');
       const expiryVal = biz.subscriptionExpiresAt || biz.subscriptionExpiryDate || '';
+      const arthiCodeVal = biz.arthiCode || generateSuggestedArthiCode(nameVal);
 
       return {
         ...biz,
         name: nameVal,
         businessName: nameVal,
+        arthiCode: arthiCodeVal,
         plan: planVal,
         subscriptionPlan: planVal,
         status: statusVal,
@@ -53,9 +56,25 @@ export async function createBusiness(req, res) {
     const subscriptionExpiresAt = req.body.subscriptionExpiresAt || req.body.subscriptionExpiryDate;
     const logo = req.body.logo || '';
     const customTenantId = req.body.tenantId;
+    const rawArthiCode = req.body.arthiCode;
 
     if (!name || !email) {
       return res.status(400).json({ error: 'Please fill in Business Name and Email.' });
+    }
+
+    // Process & validate Arthi Code (platform-wide unique, 2-5 uppercase alphanumeric)
+    const cleanArthiCode = (rawArthiCode ? rawArthiCode.trim() : generateSuggestedArthiCode(name)).toUpperCase();
+    if (!validateArthiCode(cleanArthiCode)) {
+      return res.status(400).json({ error: 'Arthi Code must be 2 to 5 alphanumeric characters (e.g. RT, BFM).' });
+    }
+
+    // Platform-wide uniqueness check
+    const allBusinesses = await Business.find();
+    const isDuplicateArthi = allBusinesses.some(b => 
+      !b.isDeleted && b.arthiCode && b.arthiCode.trim().toUpperCase() === cleanArthiCode
+    );
+    if (isDuplicateArthi) {
+      return res.status(400).json({ error: `Arthi Code "${cleanArthiCode}" is already in use by another registered business. Please choose a unique code.` });
     }
 
     // Check if email already registered
@@ -79,6 +98,7 @@ export async function createBusiness(req, res) {
       name,
       businessName: name,
       businessCode,
+      arthiCode: cleanArthiCode,
       ownerName: ownerName || 'Admin',
       email,
       phone,
@@ -163,9 +183,31 @@ export async function editBusiness(req, res) {
     const bStatus = req.body.status || req.body.subscriptionStatus || business.status || business.subscriptionStatus || 'Active';
     const bExpiry = req.body.subscriptionExpiresAt || req.body.subscriptionExpiryDate || business.subscriptionExpiresAt || business.subscriptionExpiryDate;
 
+    let bArthiCode = business.arthiCode;
+    if (req.body.arthiCode !== undefined && req.body.arthiCode.trim() !== '') {
+      const cleanArthi = req.body.arthiCode.trim().toUpperCase();
+      if (!validateArthiCode(cleanArthi)) {
+        return res.status(400).json({ error: 'Arthi Code must be 2 to 5 alphanumeric characters (e.g. RT, BFM).' });
+      }
+      // Check uniqueness across other businesses
+      const allBusinesses = await Business.find();
+      const isDuplicate = allBusinesses.some(b => {
+        const bId = b.id || b._id?.toString();
+        return (bId !== id && String(bId) !== String(id)) &&
+               !b.isDeleted &&
+               b.arthiCode &&
+               b.arthiCode.trim().toUpperCase() === cleanArthi;
+      });
+      if (isDuplicate) {
+        return res.status(400).json({ error: `Arthi Code "${cleanArthi}" is already assigned to another business.` });
+      }
+      bArthiCode = cleanArthi;
+    }
+
     const updateData = {
       name: bName,
       businessName: bName,
+      arthiCode: bArthiCode,
       ownerName: bOwner,
       email: bEmail,
       phone: bPhone,
@@ -541,3 +583,22 @@ export async function updateSuperAdminProfile(req, res) {
     res.status(500).json({ error: 'Failed to update profile.' });
   }
 }
+
+// 13. Suggest Unique Arthi Code
+export async function suggestArthiCodeHandler(req, res) {
+  try {
+    const { name } = req.query;
+    const base = generateSuggestedArthiCode(name || '');
+    const allBiz = await Business.find({ isDeleted: { $ne: true } });
+    let candidate = base;
+    let suffix = 1;
+    while (allBiz.some(b => b.arthiCode && b.arthiCode.trim().toUpperCase() === candidate.toUpperCase())) {
+      candidate = (base.substring(0, 4) + suffix).substring(0, 5).toUpperCase();
+      suffix++;
+    }
+    res.json({ suggestedCode: candidate });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate suggested code.' });
+  }
+}
+

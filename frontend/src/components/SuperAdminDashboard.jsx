@@ -32,6 +32,7 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
   // Form States
   const [createForm, setCreateForm] = useState({
     name: '',
+    arthiCode: '',
     ownerName: '',
     email: '',
     password: '',
@@ -40,9 +41,11 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
     tenantId: '',
     subscriptionExpiresAt: ''
   });
+  const [isArthiCodeManuallyEdited, setIsArthiCodeManuallyEdited] = useState(false);
 
   const [editForm, setEditForm] = useState({
     name: '',
+    arthiCode: '',
     ownerName: '',
     email: '',
     phone: '',
@@ -76,6 +79,29 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
     fetchData();
   }, []);
 
+  // Suggest Arthi Code from Business Name
+  const suggestCode = async (name) => {
+    if (!name || isArthiCodeManuallyEdited) return;
+    try {
+      const res = await api.get(`/super-admin/businesses/suggest-arthi-code?name=${encodeURIComponent(name)}`);
+      if (res.data?.suggestedCode && !isArthiCodeManuallyEdited) {
+        setCreateForm(prev => ({ ...prev, arthiCode: res.data.suggestedCode }));
+      }
+    } catch (err) {
+      // Local fallback
+      const words = name.trim().split(/\s+/).filter(Boolean);
+      let fallbackCode = '';
+      if (words.length >= 2) {
+        fallbackCode = (words[0][0] + words[1][0]).toUpperCase();
+      } else if (words.length === 1 && words[0].length >= 2) {
+        fallbackCode = words[0].substring(0, 3).toUpperCase();
+      }
+      if (fallbackCode && !isArthiCodeManuallyEdited) {
+        setCreateForm(prev => ({ ...prev, arthiCode: fallbackCode.replace(/[^A-Z0-9]/g, '') }));
+      }
+    }
+  };
+
   const handleCreateBusiness = async (e) => {
     e.preventDefault();
     setActionLoading(true);
@@ -85,8 +111,9 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
       setActionMessage({ type: 'success', text: 'Business registered successfully!' });
       setShowCreateModal(false);
       setCreateForm({
-        name: '', ownerName: '', email: '', password: '', phone: '', plan: 'Pro', tenantId: '', subscriptionExpiresAt: ''
+        name: '', arthiCode: '', ownerName: '', email: '', password: '', phone: '', plan: 'Pro', tenantId: '', subscriptionExpiresAt: ''
       });
+      setIsArthiCodeManuallyEdited(false);
       fetchData();
     } catch (err) {
       setActionMessage({ type: 'error', text: err.response?.data?.error || 'Failed to create business.' });
@@ -334,9 +361,20 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white text-sm">{b.name}</p>
-                          <p className="text-[10px] font-mono text-slate-400 mt-0.5">
-                            Tenant: <span className="text-indigo-400 font-semibold">{b.tenantId}</span>
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                            <span className="text-[10px] font-mono text-slate-400">
+                              Tenant: <span className="text-indigo-400 font-semibold">{b.tenantId}</span>
+                            </span>
+                            {b.arthiCode ? (
+                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-[10px] border border-emerald-500/20">
+                                Arthi: {b.arthiCode}
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 font-mono text-[10px]">
+                                No Arthi Code
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -421,6 +459,7 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                             setSelectedBusiness(b);
                             setEditForm({
                               name: b.name || '',
+                              arthiCode: b.arthiCode || '',
                               ownerName: b.ownerName || '',
                               email: b.email || '',
                               phone: b.phone || '',
@@ -475,11 +514,51 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                     required
                     placeholder="e.g. Bismillah Fruit Commission Shop"
                     value={createForm.name}
-                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCreateForm({ ...createForm, name: val });
+                      suggestCode(val);
+                    }}
                     className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-extrabold uppercase text-slate-400">Arthi Code * (2–5 Chars)</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsArthiCodeManuallyEdited(false);
+                        suggestCode(createForm.name);
+                      }}
+                      className="text-[10px] text-emerald-500 hover:underline font-bold"
+                    >
+                      Auto-suggest
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    maxLength={5}
+                    placeholder="e.g. BF, RT, SFM"
+                    value={createForm.arthiCode}
+                    onChange={(e) => {
+                      setIsArthiCodeManuallyEdited(true);
+                      setCreateForm({ 
+                        ...createForm, 
+                        arthiCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') 
+                      });
+                    }}
+                    className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500 tracking-wider"
+                  />
+                  <p className="text-[9px] text-slate-400 mt-1">
+                    Prefix for Khata IDs (e.g. {createForm.arthiCode || 'CODE'}-C-1). Unique platform-wide.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Custom Tenant ID (Optional)</label>
                   <input
@@ -490,9 +569,7 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                     className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Admin Owner Name *</label>
                   <input
@@ -504,7 +581,9 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                     className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Admin Phone Number</label>
                   <input
@@ -515,9 +594,7 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                     className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Admin Login Email *</label>
                   <input
@@ -529,7 +606,9 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                     className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Initial Password *</label>
                   <input
@@ -541,9 +620,7 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                     className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">SaaS Plan Tier</label>
                   <select
@@ -618,8 +695,8 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
             </div>
 
             <form onSubmit={handleEditBusiness} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
                   <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Business Name</label>
                   <input
                     type="text"
@@ -631,11 +708,38 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                 </div>
 
                 <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Arthi Code (2–5 Chars)</label>
+                  <input
+                    type="text"
+                    maxLength={5}
+                    placeholder="e.g. BF"
+                    value={editForm.arthiCode}
+                    onChange={(e) => setEditForm({ 
+                      ...editForm, 
+                      arthiCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') 
+                    })}
+                    className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 tracking-wider"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
                   <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Owner Name</label>
                   <input
                     type="text"
                     value={editForm.ownerName}
                     onChange={(e) => setEditForm({ ...editForm, ownerName: e.target.value })}
+                    className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase text-slate-400 mb-1">Admin Email</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                     className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>

@@ -1,6 +1,7 @@
 import bcryptjs from 'bcryptjs';
 import { User, Customer, Supplier, Employee, AuditLog, Ledger, Payment, StockEntry, Sale } from '../models/index.js';
 import { buildTenantQuery, getTenantId } from '../utils/tenant.js';
+import { peekNextKhataId, getNextKhataId, isKhataIdUnique, syncCounterIfNeeded } from '../utils/counter.js';
 
 // --- CLERKS ---
 export async function getClerks(req, res) {
@@ -155,13 +156,39 @@ export async function getSuppliers(req, res) {
   }
 }
 
+// Preview Next Khata ID
+export async function getNextSupplierKhataId(req, res) {
+  try {
+    const tenantId = getTenantId(req) || 'tenant_default_001';
+    const preview = await peekNextKhataId(tenantId, 'Supplier');
+    res.json(preview);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to generate next Supplier Khata ID preview.' });
+  }
+}
+
 export async function addSupplier(req, res) {
   try {
-    const { name, email, password, phone, address, cnic, currentBalance } = req.body;
+    const { name, email, password, phone, address, cnic, currentBalance, khataId: customKhataId } = req.body;
     const tenantId = getTenantId(req) || 'tenant_default_001';
 
     if (!name || !phone) {
       return res.status(400).json({ error: 'Please provide supplier name and phone number.' });
+    }
+
+    // Determine Khata ID (manual or atomic auto-generation)
+    let finalKhataId = '';
+    if (customKhataId && customKhataId.trim() !== '') {
+      finalKhataId = customKhataId.trim().toUpperCase();
+      const isUnique = await isKhataIdUnique(tenantId, 'Supplier', finalKhataId);
+      if (!isUnique) {
+        return res.status(400).json({ error: `Khata ID "${finalKhataId}" is already in use for another supplier in this business.` });
+      }
+      await syncCounterIfNeeded(tenantId, 'Supplier', finalKhataId);
+    } else {
+      const generated = await getNextKhataId(tenantId, 'Supplier');
+      finalKhataId = generated.khataId;
     }
 
     if (email && email.trim()) {
@@ -182,6 +209,7 @@ export async function addSupplier(req, res) {
       name,
       phone,
       address,
+      khataId: finalKhataId,
       role: 'Supplier',
       status: 'Active',
     };
@@ -200,6 +228,7 @@ export async function addSupplier(req, res) {
     const supplier = await Supplier.create({
       tenantId,
       userId: user ? (user.id || user._id) : null,
+      khataId: finalKhataId,
       name,
       phone,
       address,
@@ -230,7 +259,7 @@ export async function addSupplier(req, res) {
       userName: req.user.name,
       userRole: req.user.role,
       action: 'ADD_SUPPLIER',
-      details: `Created supplier ${name}${email ? ` and linked account ${email}` : ''}.`,
+      details: `Created supplier ${name} (Khata ID: ${finalKhataId})${email ? ` and linked account ${email}` : ''}.`,
       timestamp: new Date().toISOString(),
     });
 
@@ -244,11 +273,28 @@ export async function addSupplier(req, res) {
 export async function editSupplier(req, res) {
   try {
     const { id } = req.params;
-    const { name, email, password, phone, address, cnic, currentBalance } = req.body;
+    const { name, email, password, phone, address, cnic, currentBalance, khataId: customKhataId } = req.body;
 
     const supplier = await Supplier.findById(id);
     if (!supplier) {
       return res.status(404).json({ error: 'Supplier not found.' });
+    }
+
+    const tenantId = getTenantId(req) || supplier.tenantId || 'tenant_default_001';
+    let updatedKhataId = supplier.khataId;
+    let khataIdChanged = false;
+
+    if (customKhataId !== undefined && customKhataId.trim() !== '') {
+      const cleanKhataId = customKhataId.trim().toUpperCase();
+      if (cleanKhataId !== (supplier.khataId || '')) {
+        const isUnique = await isKhataIdUnique(tenantId, 'Supplier', cleanKhataId, id);
+        if (!isUnique) {
+          return res.status(400).json({ error: `Khata ID "${cleanKhataId}" is already assigned to another supplier.` });
+        }
+        await syncCounterIfNeeded(tenantId, 'Supplier', cleanKhataId);
+        updatedKhataId = cleanKhataId;
+        khataIdChanged = true;
+      }
     }
 
     // Update supplier info
@@ -257,13 +303,14 @@ export async function editSupplier(req, res) {
       phone,
       address,
       cnic,
+      khataId: updatedKhataId,
       currentBalance: Number(currentBalance) !== undefined ? Number(currentBalance) : supplier.currentBalance,
       remainingBalance: Number(currentBalance) !== undefined ? Number(currentBalance) : supplier.remainingBalance,
     }, { new: true });
 
     // Update linked user info
     if (supplier.userId) {
-      const userUpdate = { name, phone, address };
+      const userUpdate = { name, phone, address, khataId: updatedKhataId };
       if (email !== undefined) {
         if (email && email.trim()) {
           const duplicate = await User.findOne({ email: email.trim() });
@@ -281,7 +328,9 @@ export async function editSupplier(req, res) {
       await User.findByIdAndUpdate(supplier.userId, userUpdate);
     }
 
-    const tenantId = getTenantId(req) || supplier.tenantId || 'tenant_default_001';
+    const auditDetails = khataIdChanged 
+      ? `Updated supplier profile ${name || supplier.name}. Changed Khata ID from "${supplier.khataId || 'None'}" to "${updatedKhataId}".`
+      : `Updated supplier profile details for ${name || supplier.name}.`;
 
     await AuditLog.create({
       tenantId,
@@ -289,7 +338,7 @@ export async function editSupplier(req, res) {
       userName: req.user.name,
       userRole: req.user.role,
       action: 'EDIT_SUPPLIER',
-      details: `Updated supplier profile details for ${name || supplier.name}.`,
+      details: auditDetails,
       timestamp: new Date().toISOString(),
     });
 
@@ -359,13 +408,39 @@ export async function getCustomers(req, res) {
   }
 }
 
+// Preview Next Customer Khata ID
+export async function getNextCustomerKhataId(req, res) {
+  try {
+    const tenantId = getTenantId(req) || 'tenant_default_001';
+    const preview = await peekNextKhataId(tenantId, 'Customer');
+    res.json(preview);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to generate next Customer Khata ID preview.' });
+  }
+}
+
 export async function addCustomer(req, res) {
   try {
-    const { name, email, password, phone, address, referenceBy, currentBalance } = req.body;
+    const { name, email, password, phone, address, referenceBy, currentBalance, khataId: customKhataId } = req.body;
     const tenantId = getTenantId(req) || 'tenant_default_001';
 
     if (!name || !phone) {
       return res.status(400).json({ error: 'Please provide customer name and phone number.' });
+    }
+
+    // Determine Khata ID (manual or atomic auto-generation)
+    let finalKhataId = '';
+    if (customKhataId && customKhataId.trim() !== '') {
+      finalKhataId = customKhataId.trim().toUpperCase();
+      const isUnique = await isKhataIdUnique(tenantId, 'Customer', finalKhataId);
+      if (!isUnique) {
+        return res.status(400).json({ error: `Khata ID "${finalKhataId}" is already in use for another customer in this business.` });
+      }
+      await syncCounterIfNeeded(tenantId, 'Customer', finalKhataId);
+    } else {
+      const generated = await getNextKhataId(tenantId, 'Customer');
+      finalKhataId = generated.khataId;
     }
 
     if (email && email.trim()) {
@@ -386,6 +461,7 @@ export async function addCustomer(req, res) {
       name,
       phone,
       address,
+      khataId: finalKhataId,
       role: 'Customer',
       status: 'Active',
     };
@@ -404,6 +480,7 @@ export async function addCustomer(req, res) {
     const customer = await Customer.create({
       tenantId,
       userId: user ? (user.id || user._id) : null,
+      khataId: finalKhataId,
       name,
       phone,
       address,
@@ -434,7 +511,7 @@ export async function addCustomer(req, res) {
       userName: req.user.name,
       userRole: req.user.role,
       action: 'ADD_CUSTOMER',
-      details: `Created customer ${name}${email ? ` and linked account ${email}` : ''}.`,
+      details: `Created customer ${name} (Khata ID: ${finalKhataId})${email ? ` and linked account ${email}` : ''}.`,
       timestamp: new Date().toISOString(),
     });
 
@@ -448,11 +525,28 @@ export async function addCustomer(req, res) {
 export async function editCustomer(req, res) {
   try {
     const { id } = req.params;
-    const { name, email, password, phone, address, referenceBy, currentBalance } = req.body;
+    const { name, email, password, phone, address, referenceBy, currentBalance, khataId: customKhataId } = req.body;
 
     const customer = await Customer.findById(id);
     if (!customer) {
       return res.status(404).json({ error: 'Customer not found.' });
+    }
+
+    const tenantId = getTenantId(req) || customer.tenantId || 'tenant_default_001';
+    let updatedKhataId = customer.khataId;
+    let khataIdChanged = false;
+
+    if (customKhataId !== undefined && customKhataId.trim() !== '') {
+      const cleanKhataId = customKhataId.trim().toUpperCase();
+      if (cleanKhataId !== (customer.khataId || '')) {
+        const isUnique = await isKhataIdUnique(tenantId, 'Customer', cleanKhataId, id);
+        if (!isUnique) {
+          return res.status(400).json({ error: `Khata ID "${cleanKhataId}" is already assigned to another customer.` });
+        }
+        await syncCounterIfNeeded(tenantId, 'Customer', cleanKhataId);
+        updatedKhataId = cleanKhataId;
+        khataIdChanged = true;
+      }
     }
 
     // Update customer info
@@ -460,6 +554,7 @@ export async function editCustomer(req, res) {
       name,
       phone,
       address,
+      khataId: updatedKhataId,
       referenceBy: referenceBy !== undefined ? referenceBy : customer.referenceBy,
       currentBalance: Number(currentBalance) !== undefined ? Number(currentBalance) : customer.currentBalance,
       remainingBalance: Number(currentBalance) !== undefined ? Number(currentBalance) : customer.remainingBalance,
@@ -467,7 +562,7 @@ export async function editCustomer(req, res) {
 
     // Update linked user
     if (customer.userId) {
-      const userUpdate = { name, phone, address };
+      const userUpdate = { name, phone, address, khataId: updatedKhataId };
       if (email !== undefined) {
         if (email && email.trim()) {
           const duplicate = await User.findOne({ email: email.trim() });
@@ -485,7 +580,9 @@ export async function editCustomer(req, res) {
       await User.findByIdAndUpdate(customer.userId, userUpdate);
     }
 
-    const tenantId = getTenantId(req) || customer.tenantId || 'tenant_default_001';
+    const auditDetails = khataIdChanged
+      ? `Updated customer profile ${name || customer.name}. Changed Khata ID from "${customer.khataId || 'None'}" to "${updatedKhataId}".`
+      : `Updated customer profile details for ${name || customer.name}.`;
 
     await AuditLog.create({
       tenantId,
@@ -493,7 +590,7 @@ export async function editCustomer(req, res) {
       userName: req.user.name,
       userRole: req.user.role,
       action: 'EDIT_CUSTOMER',
-      details: `Updated customer profile details for ${name || customer.name}.`,
+      details: auditDetails,
       timestamp: new Date().toISOString(),
     });
 

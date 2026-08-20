@@ -3,8 +3,8 @@ import { authenticateJWT, authorizeRoles } from '../middleware/auth.js';
 import { login, getProfile } from '../controllers/authController.js';
 import {
   getClerks, addClerk, editClerk, deleteClerk,
-  getSuppliers, addSupplier, editSupplier, deleteSupplier,
-  getCustomers, addCustomer, editCustomer, deleteCustomer,
+  getSuppliers, addSupplier, editSupplier, deleteSupplier, getNextSupplierKhataId,
+  getCustomers, addCustomer, editCustomer, deleteCustomer, getNextCustomerKhataId,
   getDeletedUsers, restoreUser, deleteUser
 } from '../controllers/userController.js';
 import { getProducts, addProduct, editProduct, deleteProduct } from '../controllers/productController.js';
@@ -42,7 +42,7 @@ import {
 import {
   getBusinesses, createBusiness, editBusiness, toggleBusinessStatus, resetOwnerPassword,
   renewSubscription, deleteBusiness, getSuperAdminStats, getAllUsers, toggleUserStatus,
-  getGlobalSettings, updateGlobalSettings, updateSuperAdminProfile
+  getGlobalSettings, updateGlobalSettings, updateSuperAdminProfile, suggestArthiCodeHandler
 } from '../controllers/superAdminController.js';
 
 const router = express.Router();
@@ -67,6 +67,7 @@ router.delete('/clerks/:id', authenticateJWT, authorizeRoles('Admin'), deleteCle
 router.post('/clerks/:id/restore', authenticateJWT, authorizeRoles('Admin'), restoreUser);
 
 // --- SUPPLIERS ---
+router.get('/suppliers/next-khata-id', authenticateJWT, authorizeRoles('Admin', 'Clerk'), getNextSupplierKhataId);
 router.get('/suppliers', authenticateJWT, getSuppliers);
 router.post('/suppliers', authenticateJWT, authorizeRoles('Admin'), addSupplier);
 router.put('/suppliers/:id', authenticateJWT, authorizeRoles('Admin'), editSupplier);
@@ -74,6 +75,7 @@ router.delete('/suppliers/:id', authenticateJWT, authorizeRoles('Admin'), delete
 router.post('/suppliers/:id/restore', authenticateJWT, authorizeRoles('Admin'), restoreUser);
 
 // --- CUSTOMERS ---
+router.get('/customers/next-khata-id', authenticateJWT, authorizeRoles('Admin', 'Clerk'), getNextCustomerKhataId);
 router.get('/customers', authenticateJWT, getCustomers);
 router.post('/customers', authenticateJWT, authorizeRoles('Admin'), addCustomer);
 router.put('/customers/:id', authenticateJWT, authorizeRoles('Admin'), editCustomer);
@@ -201,6 +203,7 @@ router.get('/settings/tax', authenticateJWT, authorizeRoles('Admin', 'Clerk', 's
 router.put('/settings/tax', authenticateJWT, authorizeRoles('Admin'), updateTaxSettings);
 
 // --- SUPER ADMIN ROUTES ---
+router.get('/super-admin/businesses/suggest-arthi-code', authenticateJWT, authorizeRoles('super_admin'), suggestArthiCodeHandler);
 router.get('/super-admin/businesses', authenticateJWT, authorizeRoles('super_admin'), getBusinesses);
 router.post('/super-admin/businesses', authenticateJWT, authorizeRoles('super_admin'), createBusiness);
 router.put('/super-admin/businesses/:id', authenticateJWT, authorizeRoles('super_admin'), editBusiness);

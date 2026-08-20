@@ -206,6 +206,65 @@ class ModelWrapper {
     return items.length;
   }
 
+  async findOneAndUpdate(query = {}, update = {}, options = {}) {
+    await ensureDBConnected();
+    if (useMongoDB && mongoose.connection.readyState === 1) {
+      return this.mongooseModel.findOneAndUpdate(query, update, { ...options, new: options.new !== false }).lean();
+    }
+    const data = readJSON(this.filename);
+    let idx = data.findIndex(item => {
+      for (const key in query) {
+        if (query[key] !== undefined && item[key] !== query[key]) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (idx === -1) {
+      if (options.upsert) {
+        const newId = Math.random().toString(36).substring(2, 11);
+        const newDoc = {
+          ...query,
+          id: newId,
+          _id: newId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        this._applyUpdateToDoc(newDoc, update);
+        data.push(newDoc);
+        writeJSON(this.filename, data);
+        return newDoc;
+      }
+      return null;
+    }
+
+    const doc = data[idx];
+    const prevDoc = { ...doc };
+    this._applyUpdateToDoc(doc, update);
+    doc.updatedAt = new Date().toISOString();
+    writeJSON(this.filename, data);
+    return options.new ? doc : prevDoc;
+  }
+
+  _applyUpdateToDoc(doc, update) {
+    if (update.$inc) {
+      for (const key in update.$inc) {
+        doc[key] = (Number(doc[key]) || 0) + Number(update.$inc[key]);
+      }
+    }
+    if (update.$set) {
+      for (const key in update.$set) {
+        doc[key] = update.$set[key];
+      }
+    }
+    for (const key in update) {
+      if (key !== '$inc' && key !== '$set' && key !== '$setOnInsert') {
+        doc[key] = update[key];
+      }
+    }
+  }
+
   // Raw helper to read all items from the local JSON file
   getAllLocal() {
     return readJSON(this.filename);

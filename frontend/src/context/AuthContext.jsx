@@ -87,9 +87,9 @@ export function AuthProvider({ children }) {
     return () => clearInterval(interval);
   }, [token, isSessionExpired, logout]);
 
-  const login = async (email, password, role) => {
+  const login = async (identifier, password, role) => {
     try {
-      const res = await api.post('/auth/login', { email, password, role });
+      const res = await api.post('/auth/login', { identifier, email: identifier, password, role });
       const { token: receivedToken, user: receivedUser } = res.data;
 
       if (!receivedToken) {

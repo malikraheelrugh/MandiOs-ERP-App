@@ -47,6 +47,7 @@ function SearchablePartySelect({ partyType, partyId, suppliers = [], customers =
     return partiesList.filter(p => 
       (p.name && p.name.toLowerCase().includes(term)) ||
       (p.phone && p.phone.toLowerCase().includes(term)) ||
+      (p.khataId && String(p.khataId).toLowerCase().includes(term)) ||
       (p.code && String(p.code).toLowerCase().includes(term))
     );
   }, [partiesList, searchTerm]);
@@ -78,7 +79,7 @@ function SearchablePartySelect({ partyType, partyId, suppliers = [], customers =
       >
         <span className={selectedParty ? 'text-slate-900 dark:text-white font-bold truncate' : 'text-slate-400 truncate'}>
           {selectedParty ? (
-            `${selectedParty.name} (${partyType === 'Supplier' ? `Debt: Rs. ${Math.abs(selectedParty.currentBalance || 0).toLocaleString()}` : `Receivable: Rs. ${(selectedParty.currentBalance || 0).toLocaleString()}`})`
+            `${selectedParty.name}${selectedParty.khataId ? ` [${selectedParty.khataId}]` : ''} (${partyType === 'Supplier' ? `Debt: Rs. ${Math.abs(selectedParty.currentBalance || 0).toLocaleString()}` : `Receivable: Rs. ${(selectedParty.currentBalance || 0).toLocaleString()}`})`
           ) : (
             partyType ? `Click to search or select ${partyType}...` : 'First Select Party Type'
           )}
@@ -128,7 +129,14 @@ function SearchablePartySelect({ partyType, partyId, suppliers = [], customers =
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-slate-900 dark:text-white truncate">{p.name}</div>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="font-semibold text-slate-900 dark:text-white">{p.name}</span>
+                        {(p.khataId || p.code) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+                            {p.khataId || p.code}
+                          </span>
+                        )}
+                      </div>
                       {p.phone && <div className="text-[10px] text-slate-400 truncate">Phone: {p.phone}</div>}
                     </div>
                     <div className="text-right text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
@@ -617,13 +625,17 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
   }, [tab, reportType, customStart, customEnd, filterProduct, filterSupplier, filterCustomer, filterCategory, filterTruck, filterClerk]);
 
   // Open Add/Edit modals
-  const openModal = (type, mode, item = null) => {
+  const openModal = async (type, mode, item = null) => {
     setModalType(type);
     setModalMode(mode);
     setSelectedItem(item);
 
     if (mode === 'edit' && item) {
-      setFormData({ ...item, password: '' }); // reset password field for edit
+      setFormData({
+        ...item,
+        khataId: item.khataId || item.code || '',
+        password: ''
+      }); // reset password field for edit
     } else {
       if (type === 'payment') {
         const defaultMethod = (paymentMethods || []).find(m => m.status === 'Active' || !m.status)?.name || 'Cash';
@@ -635,6 +647,26 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
           paymentMethod: defaultMethod,
           description: ''
         });
+      } else if (type === 'supplier') {
+        setFormData({ khataId: '' });
+        try {
+          const res = await api.get('/suppliers/next-khata-id');
+          if (res.data?.nextKhataId) {
+            setFormData(prev => ({ ...prev, khataId: res.data.nextKhataId }));
+          }
+        } catch (e) {
+          // ignore or fallback
+        }
+      } else if (type === 'customer') {
+        setFormData({ khataId: '' });
+        try {
+          const res = await api.get('/customers/next-khata-id');
+          if (res.data?.nextKhataId) {
+            setFormData(prev => ({ ...prev, khataId: res.data.nextKhataId }));
+          }
+        } catch (e) {
+          // ignore or fallback
+        }
       } else {
         setFormData({});
       }
@@ -2432,7 +2464,14 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                   {filterAndPaginate(suppliers).paginated.map(sup => (
                     <tr key={sup.id || sup._id} className="hover:bg-slate-800/20">
                       <td className="py-3.5 px-5">
-                        <span className="font-bold block">{sup.name}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold block">{sup.name}</span>
+                          {(sup.khataId || sup.code) && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                              {sup.khataId || sup.code}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-slate-500">{sup.address}</span>
                       </td>
                       <td className="py-3.5 px-5 font-semibold text-slate-700 dark:text-slate-300">{sup.phone}</td>
@@ -2511,7 +2550,14 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                   {filterAndPaginate(customers).paginated.map(cust => (
                     <tr key={cust.id || cust._id} className="hover:bg-slate-800/20">
                       <td className="py-3.5 px-5">
-                        <span className="font-bold block">{cust.name}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold block">{cust.name}</span>
+                          {(cust.khataId || cust.code) && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                              {cust.khataId || cust.code}
+                            </span>
+                          )}
+                        </div>
                         {cust.address && <span className="text-[10px] text-slate-500 block">{cust.address}</span>}
                         {cust.referenceBy && <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold block">Ref: {cust.referenceBy}</span>}
                       </td>
@@ -3331,6 +3377,25 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                   <label className="text-slate-500 dark:text-slate-400 font-bold block uppercase tracking-wider">Name</label>
                   <input required type="text" name="name" value={formData.name || ''} onChange={handleFormChange} className="w-full bg-[#F8FAFC] dark:bg-[#0F172A] border border-slate-200 dark:border-slate-200 dark:border-slate-800/80 rounded-xl px-4 py-3 outline-none focus:border-[#4F46E5]" />
                 </div>
+
+                {(modalType === 'supplier' || modalType === 'customer') && (
+                  <div className="space-y-1">
+                    <label className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                      <span>Khata ID (Unique / Auto-Generated)</span>
+                      <span className="text-[10px] text-emerald-500 font-semibold tracking-normal normal-case">
+                        Used for login & ledgers
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      name="khataId"
+                      value={formData.khataId || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, khataId: e.target.value.toUpperCase() }))}
+                      placeholder={modalType === 'supplier' ? 'e.g. RT-S-1' : 'e.g. RT-C-1'}
+                      className="w-full bg-[#F8FAFC] dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800/80 rounded-xl px-4 py-3 outline-none focus:border-[#4F46E5] font-mono font-bold text-slate-800 dark:text-slate-100"
+                    />
+                  </div>
+                )}
 
                 {modalType !== 'product' && (
                   <>
