@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
-import { Shield, Key, Mail, UserCheck, Sun, Moon, Hash } from 'lucide-react';
+import { Shield, Key, Mail, UserCheck, Sun, Moon, Hash, Users, Crown, ShoppingBag, Sprout } from 'lucide-react';
 import SpokeSpinner from './common/SpokeSpinner.jsx';
 
 export default function Login() {
@@ -33,7 +33,7 @@ export default function Login() {
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] text-slate-800 dark:text-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans relative transition-colors duration-200">
       
       {/* Top right theme toggle */}
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         <button 
           type="button"
           onClick={toggleTheme}
@@ -65,16 +65,174 @@ export default function Login() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-[#1E293B] py-8 px-4 border border-[#E2E8F0] dark:border-slate-800 shadow-xl rounded-3xl sm:px-10">
-          <form className="space-y-5 text-xs" onSubmit={handleSubmit}>
+          <form className="space-y-4 text-xs" onSubmit={handleSubmit}>
             {error && (
               <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold leading-relaxed">
                 ⚠️ {error}
               </div>
             )}
 
+            {/* 3 Small Active Role Cards (Upper to Email / Khata ID) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="block text-[#475569] dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+                  {t("Select System Role")}
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  {role === 'Admin' && '👑 Business Owner'}
+                  {role === 'Clerk' && '📝 Desk Operator'}
+                  {role === 'Customer' && '🛒 Buyer Khata'}
+                  {role === 'Supplier' && '🌾 Farmer Khata'}
+                  {role === 'super_admin' && '⚡ Master Super Admin'}
+                </span>
+              </div>
+
+              {/* Three Small Role Cards */}
+              <div className="grid grid-cols-3 gap-2">
+                {/* Card 1: Admin */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('Admin');
+                    setIdentifier('');
+                  }}
+                  className={`relative flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all cursor-pointer text-center group ${
+                    role === 'Admin'
+                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/30 shadow-sm'
+                      : 'bg-[#F8FAFC] dark:bg-[#0F172A] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-xl mb-1 transition-colors ${
+                    role === 'Admin'
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 group-hover:text-emerald-500'
+                  }`}>
+                    <Shield size={16} />
+                  </div>
+                  <span className="font-bold text-[11px] leading-tight">
+                    {t("Admin")}
+                  </span>
+                  <span className="text-[9px] opacity-75 font-medium mt-0.5">
+                    Arthi / Owner
+                  </span>
+                </button>
+
+                {/* Card 2: Clerk */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('Clerk');
+                    setIdentifier('');
+                  }}
+                  className={`relative flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all cursor-pointer text-center group ${
+                    role === 'Clerk'
+                      ? 'bg-indigo-500/10 border-indigo-500 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500/30 shadow-sm'
+                      : 'bg-[#F8FAFC] dark:bg-[#0F172A] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-xl mb-1 transition-colors ${
+                    role === 'Clerk'
+                      ? 'bg-indigo-500 text-white shadow-sm'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 group-hover:text-indigo-500'
+                  }`}>
+                    <UserCheck size={16} />
+                  </div>
+                  <span className="font-bold text-[11px] leading-tight">
+                    {t("Clerk")}
+                  </span>
+                  <span className="text-[9px] opacity-75 font-medium mt-0.5">
+                    Desk Operator
+                  </span>
+                </button>
+
+                {/* Card 3: Khata Party */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (role !== 'Customer' && role !== 'Supplier') {
+                      setRole('Customer');
+                    }
+                    setIdentifier('');
+                  }}
+                  className={`relative flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all cursor-pointer text-center group ${
+                    isKhataRole
+                      ? 'bg-amber-500/10 border-amber-500 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500/30 shadow-sm'
+                      : 'bg-[#F8FAFC] dark:bg-[#0F172A] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-xl mb-1 transition-colors ${
+                    isKhataRole
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 group-hover:text-amber-500'
+                  }`}>
+                    <Users size={16} />
+                  </div>
+                  <span className="font-bold text-[11px] leading-tight">
+                    {t("Khata Party")}
+                  </span>
+                  <span className="text-[9px] opacity-75 font-medium mt-0.5">
+                    {role === 'Supplier' ? 'Supplier' : 'Customer'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Sub-selector pills if Khata Party card is active */}
+              {isKhataRole && (
+                <div className="flex items-center bg-slate-100 dark:bg-slate-900/90 p-1 rounded-xl border border-slate-200 dark:border-slate-800 gap-1.5 animate-in fade-in duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRole('Customer');
+                      setIdentifier('');
+                    }}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      role === 'Customer'
+                        ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-500/30'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <ShoppingBag size={12} />
+                    <span>Customer (Buyer)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRole('Supplier');
+                      setIdentifier('');
+                    }}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      role === 'Supplier'
+                        ? 'bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm border border-purple-500/30'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Sprout size={12} />
+                    <span>Supplier (Farmer)</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Super Admin indicator badge if super_admin is active */}
+              {role === 'super_admin' && (
+                <div className="flex items-center justify-between bg-purple-500/10 border border-purple-400/40 rounded-xl p-2 px-3 text-purple-700 dark:text-purple-300 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Crown size={14} className="text-purple-600 dark:text-purple-400" />
+                    <span className="font-bold text-[11px]">Super Admin Master Portal</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRole('Admin')}
+                    className="text-[10px] underline font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-800 cursor-pointer"
+                  >
+                    Switch to Business
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Identifier Field (Email for Staff / Khata ID for Parties) */}
             <div className="space-y-1">
-              <label className="block text-[#475569] dark:text-slate-300 font-bold uppercase tracking-wider flex items-center justify-between">
+              <label className="block text-[#475569] dark:text-slate-300 font-bold uppercase tracking-wider flex items-center justify-between text-[11px]">
                 <span>{isKhataRole ? t("Khata ID (Required)") : t("Email Address (Required)")}</span>
                 {isKhataRole && (
                   <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold tracking-normal normal-case">
@@ -100,6 +258,7 @@ export default function Login() {
                   placeholder={
                     role === 'Customer' ? 'e.g. SFM-C-1' :
                     role === 'Supplier' ? 'e.g. SFM-S-1' :
+                    role === 'super_admin' ? 'e.g. superadmin@mandios.com' :
                     'e.g. admin@mandi.com'
                   }
                   className={`block w-full pl-10 pr-4 py-3 bg-[#F8FAFC] dark:bg-[#0F172A] border border-[#CBD5E1] dark:border-slate-800 rounded-xl outline-none text-[#1E293B] dark:text-slate-100 placeholder:text-slate-400 focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5] transition-all text-xs ${
@@ -116,7 +275,7 @@ export default function Login() {
 
             {/* Password Field */}
             <div className="space-y-1">
-              <label className="block text-[#475569] dark:text-slate-300 font-bold uppercase tracking-wider">
+              <label className="block text-[#475569] dark:text-slate-300 font-bold uppercase tracking-wider text-[11px]">
                 {t("Password Key")}
               </label>
               <div className="relative rounded-md shadow-sm">
@@ -134,35 +293,8 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Role Select Dropdown */}
-            <div className="space-y-1">
-              <label className="block text-[#475569] dark:text-slate-300 font-bold uppercase tracking-wider">
-                {t("System Role Access")}
-              </label>
-              <div className="relative rounded-md shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <UserCheck size={16} />
-                </div>
-                <select
-                  value={role}
-                  onChange={(e) => {
-                    const newRole = e.target.value;
-                    setRole(newRole);
-                    setIdentifier('');
-                  }}
-                  className="block w-full pl-10 pr-4 py-3 bg-[#F8FAFC] dark:bg-[#0F172A] border border-[#CBD5E1] dark:border-slate-800 rounded-xl outline-none text-[#1E293B] dark:text-slate-100 focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5] transition-all text-xs appearance-none font-semibold"
-                >
-                  <option value="super_admin">{t("Super Admin (Master Portal)")}</option>
-                  <option value="Admin">{t("Admin (Full Control)")}</option>
-                  <option value="Clerk">{t("Clerk (Desk Operator)")}</option>
-                  <option value="Customer">{t("Customer (Buyer — Khata ID)")}</option>
-                  <option value="Supplier">{t("Supplier (Farmer — Khata ID)")}</option>
-                </select>
-              </div>
-            </div>
-
             {/* Submit Button */}
-            <div>
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={loading}
@@ -260,4 +392,5 @@ export default function Login() {
     </div>
   );
 }
+
 
