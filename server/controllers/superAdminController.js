@@ -11,33 +11,65 @@ import { generateSuggestedArthiCode, validateArthiCode } from '../utils/counter.
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mandi-secret-key-123!';
 
-// 1. Get List of All Businesses
+// 1. Get List of All Businesses (Enhanced with all required fields)
 export async function getBusinesses(req, res) {
   try {
     const businesses = await Business.find({ isDeleted: { $ne: true } });
-    const allUsers = await User.find();
+    const allUsers = await User.find({ isDeleted: { $ne: true } });
+    const allLogs = await AuditLog.find();
+    const today = new Date().toISOString().split('T')[0];
 
-    // Enrich businesses with normalized fields for both businessName and name
+    // Enrich businesses with normalized fields
     const enriched = businesses.map(biz => {
       const bizUsers = allUsers.filter(u => u.tenantId === biz.tenantId);
       const nameVal = biz.name || biz.businessName || 'Mandi Business';
       const planVal = biz.plan || biz.subscriptionPlan || 'Pro';
-      const statusVal = biz.status || biz.subscriptionStatus || (biz.isActive !== false ? 'Active' : 'Suspended');
+      const rawStatus = biz.status || biz.subscriptionStatus || (biz.isActive !== false ? 'Active' : 'Suspended');
       const expiryVal = biz.subscriptionExpiresAt || biz.subscriptionExpiryDate || '';
       const arthiCodeVal = biz.arthiCode || generateSuggestedArthiCode(nameVal);
+      const businessCodeVal = biz.businessCode || `BUS-${1000 + (biz.id ? parseInt(String(biz.id).slice(-3), 16) % 900 : 100)}`;
+
+      // Derive status if expired
+      let finalStatus = rawStatus;
+      if (rawStatus !== 'Suspended' && expiryVal && expiryVal < today) {
+        finalStatus = 'Expired';
+      }
+
+      // Determine last activity from AuditLog or updatedAt
+      const tenantLogs = allLogs.filter(l => l.tenantId === biz.tenantId);
+      let lastActivity = biz.updatedAt || biz.createdAt || '';
+      if (tenantLogs.length > 0) {
+        const sortedLogs = [...tenantLogs].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+        lastActivity = sortedLogs[0].timestamp || lastActivity;
+      }
+
+      const locationVal = [biz.city, biz.address, biz.country || 'Pakistan'].filter(Boolean).join(', ') || 'N/A';
 
       return {
         ...biz,
+        id: biz.id || biz._id,
+        _id: biz._id || biz.id,
         name: nameVal,
         businessName: nameVal,
+        businessCode: businessCodeVal,
         arthiCode: arthiCodeVal,
+        ownerName: biz.ownerName || 'Admin',
+        email: biz.email || '',
+        phone: biz.phone || '',
+        city: biz.city || '',
+        address: biz.address || '',
+        country: biz.country || 'Pakistan',
+        location: locationVal,
         plan: planVal,
         subscriptionPlan: planVal,
-        status: statusVal,
-        subscriptionStatus: statusVal,
+        status: finalStatus,
+        subscriptionStatus: finalStatus,
         subscriptionExpiresAt: expiryVal,
         subscriptionExpiryDate: expiryVal,
+        registrationDate: biz.createdAt || biz.subscriptionStartDate || '',
+        createdAt: biz.createdAt || biz.subscriptionStartDate || '',
         totalUsers: bizUsers.length,
+        lastActivity,
       };
     });
 
@@ -96,7 +128,7 @@ export async function createBusiness(req, res) {
       ? customTenantId.trim()
       : `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const totalCount = await Business.countDocuments();
-    const businessCode = `BUS-${1001 + totalCount}`;
+    const businessCode = `REG-${1001 + totalCount}`;
 
     const startDate = new Date().toISOString().split('T')[0];
     const defaultExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -157,6 +189,17 @@ export async function createBusiness(req, res) {
       currencySymbol: 'Rs.',
     });
 
+    // Audit Log for Super Admin Action
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'BUSINESS_REGISTERED',
+      details: `Registered new business "${name}" (${businessCode}) with Plan: ${plan}, Owner: ${ownerName || 'Admin'}.`,
+      timestamp: new Date().toISOString(),
+    });
+
     res.status(201).json({
       message: 'Business created successfully.',
       business,
@@ -187,6 +230,10 @@ export async function editBusiness(req, res) {
     const bOwner = req.body.ownerName || business.ownerName;
     const bEmail = req.body.email || business.email;
     const bPhone = req.body.phone !== undefined ? req.body.phone : business.phone;
+    const bCity = req.body.city !== undefined ? req.body.city : business.city;
+    const bAddress = req.body.address !== undefined ? req.body.address : business.address;
+    const bCountry = req.body.country !== undefined ? req.body.country : (business.country || 'Pakistan');
+    const bBusinessCode = req.body.businessCode || business.businessCode;
     const bPlan = req.body.plan || req.body.subscriptionPlan || business.plan || business.subscriptionPlan;
     const bStatus = req.body.status || req.body.subscriptionStatus || business.status || business.subscriptionStatus || 'Active';
     const bExpiry = req.body.subscriptionExpiresAt || req.body.subscriptionExpiryDate || business.subscriptionExpiresAt || business.subscriptionExpiryDate;
@@ -215,10 +262,14 @@ export async function editBusiness(req, res) {
     const updateData = {
       name: bName,
       businessName: bName,
+      businessCode: bBusinessCode,
       arthiCode: bArthiCode,
       ownerName: bOwner,
       email: bEmail,
       phone: bPhone,
+      city: bCity,
+      address: bAddress,
+      country: bCountry,
       plan: bPlan,
       subscriptionPlan: bPlan,
       status: bStatus,
@@ -248,17 +299,22 @@ export async function editBusiness(req, res) {
           ownerName: bOwner,
           email: bEmail,
           mobileNumber: bPhone,
-        });
-      } else {
-        await BusinessSettings.create({
-          tenantId: business.tenantId,
-          businessName: bName,
-          ownerName: bOwner,
-          email: bEmail,
-          mobileNumber: bPhone,
+          city: bCity,
+          address: bAddress,
         });
       }
     }
+
+    // Audit Log for Super Admin Action
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'BUSINESS_EDITED',
+      details: `Edited business details for "${bName}" (Tenant: ${business.tenantId}). Status: ${bStatus}, Plan: ${bPlan}.`,
+      timestamp: new Date().toISOString(),
+    });
 
     res.json(updated);
   } catch (err) {
@@ -293,6 +349,17 @@ export async function toggleBusinessStatus(req, res) {
         });
       }
     }
+
+    // Audit Log for Super Admin Action
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: isActive ? 'BUSINESS_ACTIVATED' : 'BUSINESS_SUSPENDED',
+      details: `${isActive ? 'Activated' : 'Suspended'} business "${business.name || business.businessName}" (Tenant: ${business.tenantId}).`,
+      timestamp: new Date().toISOString(),
+    });
 
     res.json({
       message: `Business status updated to ${newStatus}.`,
@@ -331,11 +398,11 @@ export async function resetOwnerPassword(req, res) {
 
     await AuditLog.create({
       tenantId: 'super_admin_logs',
-      userId: req.user.id,
-      userName: req.user.name,
-      userRole: req.user.role,
-      action: 'SUPER_ADMIN_RESET_PASSWORD',
-      details: `Reset owner password for business '${business.businessName}' (${ownerUser.email}).`,
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'PASSWORD_RESET',
+      details: `Reset owner password for business "${business.name || business.businessName}" (${ownerUser.email}).`,
       timestamp: new Date().toISOString(),
     });
 
@@ -346,40 +413,55 @@ export async function resetOwnerPassword(req, res) {
   }
 }
 
-// 6. Renew Business Subscription
+// 6. Renew / Extend Business Subscription & Change Plan
 export async function renewSubscription(req, res) {
   try {
     const { id } = req.params;
-    const { subscriptionExpiryDate, subscriptionPlan } = req.body;
-
-    if (!subscriptionExpiryDate) {
-      return res.status(400).json({ error: 'Please provide a valid subscription expiry date.' });
-    }
+    const { subscriptionExpiryDate, subscriptionPlan, extendDays } = req.body;
 
     const business = await Business.findById(id);
     if (!business) {
       return res.status(404).json({ error: 'Business not found.' });
     }
 
+    let calculatedExpiry = subscriptionExpiryDate;
+    if (extendDays && !subscriptionExpiryDate) {
+      const currentExpiry = business.subscriptionExpiresAt || business.subscriptionExpiryDate;
+      const baseDate = (currentExpiry && new Date(currentExpiry) > new Date()) 
+        ? new Date(currentExpiry) 
+        : new Date();
+      baseDate.setDate(baseDate.getDate() + Number(extendDays));
+      calculatedExpiry = baseDate.toISOString().split('T')[0];
+    }
+
+    if (!calculatedExpiry) {
+      return res.status(400).json({ error: 'Please provide a valid subscription expiry date or extend days.' });
+    }
+
+    const nextPlan = subscriptionPlan || business.plan || business.subscriptionPlan || 'Pro';
+
     const updated = await Business.findByIdAndUpdate(id, {
-      subscriptionExpiryDate,
-      subscriptionPlan: subscriptionPlan || business.subscriptionPlan,
+      subscriptionExpiresAt: calculatedExpiry,
+      subscriptionExpiryDate: calculatedExpiry,
+      plan: nextPlan,
+      subscriptionPlan: nextPlan,
+      status: 'Active',
       subscriptionStatus: 'Active',
       isActive: true,
     });
 
     await AuditLog.create({
       tenantId: 'super_admin_logs',
-      userId: req.user.id,
-      userName: req.user.name,
-      userRole: req.user.role,
-      action: 'SUPER_ADMIN_RENEW_SUBSCRIPTION',
-      details: `Renewed subscription for business '${business.businessName}' until ${subscriptionExpiryDate}.`,
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: subscriptionPlan && subscriptionPlan !== business.plan ? 'SUBSCRIPTION_CHANGED' : 'SUBSCRIPTION_EXTENDED',
+      details: `Updated subscription for "${business.name || business.businessName}" to Plan: ${nextPlan}, Expiry: ${calculatedExpiry}${extendDays ? ` (+${extendDays} days)` : ''}.`,
       timestamp: new Date().toISOString(),
     });
 
     res.json({
-      message: 'Subscription renewed successfully.',
+      message: 'Subscription updated and extended successfully.',
       business: updated
     });
   } catch (err) {
@@ -400,16 +482,17 @@ export async function deleteBusiness(req, res) {
     const updated = await Business.findByIdAndUpdate(id, {
       isDeleted: true,
       isActive: false,
+      status: 'Suspended',
       subscriptionStatus: 'Suspended',
     });
 
     await AuditLog.create({
       tenantId: 'super_admin_logs',
-      userId: req.user.id,
-      userName: req.user.name,
-      userRole: req.user.role,
-      action: 'SUPER_ADMIN_DELETE_BUSINESS',
-      details: `Soft deleted business '${business.businessName}' (${business.tenantId}).`,
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'BUSINESS_SUSPENDED',
+      details: `Soft deleted and deactivated business "${business.name || business.businessName}" (${business.tenantId}).`,
       timestamp: new Date().toISOString(),
     });
 
@@ -420,54 +503,132 @@ export async function deleteBusiness(req, res) {
   }
 }
 
-// 8. Super Admin Dashboard Statistics
+// 8. Super Admin Dashboard Statistics & Analytics
 export async function getSuperAdminStats(req, res) {
   try {
     const businesses = await Business.find({ isDeleted: { $ne: true } });
     const today = new Date().toISOString().split('T')[0];
+    const todayDate = new Date(today);
+    const thirtyDaysAhead = new Date();
+    thirtyDaysAhead.setDate(thirtyDaysAhead.getDate() + 30);
+    const thirtyDaysStr = thirtyDaysAhead.toISOString().split('T')[0];
 
     const totalBusinesses = businesses.length;
-    const activeBusinesses = businesses.filter(b => b.isActive && b.subscriptionStatus === 'Active').length;
-    const inactiveBusinesses = businesses.filter(b => !b.isActive || b.subscriptionStatus === 'Suspended').length;
-    const expiredBusinesses = businesses.filter(b => b.subscriptionExpiryDate && b.subscriptionExpiryDate < today).length;
-    const trialBusinesses = businesses.filter(b => b.subscriptionPlan === 'Trial').length;
+    
+    // Categorize status with expiration logic
+    let activeBusinesses = 0;
+    let suspendedBusinesses = 0;
+    let expiredBusinesses = 0;
+    let trialBusinesses = 0;
+    let expiringSoonBusinesses = 0;
+    const expiringSoonList = [];
 
-    const allUsers = await User.find({ role: { $ne: 'super_admin' } });
-    const allCustomers = await Customer.find({});
-    const allSuppliers = await Supplier.find({});
-    const allSales = await Sale.find({});
+    businesses.forEach(b => {
+      const plan = b.plan || b.subscriptionPlan || 'Pro';
+      const status = b.status || b.subscriptionStatus || 'Active';
+      const expiry = b.subscriptionExpiresAt || b.subscriptionExpiryDate;
 
+      if (plan === 'Trial') trialBusinesses++;
+
+      if (status === 'Suspended' || !b.isActive) {
+        suspendedBusinesses++;
+      } else if (expiry && expiry < today) {
+        expiredBusinesses++;
+      } else {
+        activeBusinesses++;
+      }
+
+      // Check upcoming expiry (within next 30 days)
+      if (expiry && expiry >= today && expiry <= thirtyDaysStr) {
+        expiringSoonBusinesses++;
+        const expDate = new Date(expiry);
+        const diffTime = expDate - todayDate;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        expiringSoonList.push({
+          id: b.id || b._id,
+          name: b.name || b.businessName,
+          tenantId: b.tenantId,
+          ownerName: b.ownerName,
+          phone: b.phone,
+          email: b.email,
+          plan,
+          expiry,
+          daysLeft: diffDays,
+        });
+      }
+    });
+
+    const allUsers = await User.find({ isDeleted: { $ne: true } });
+    const tenantUsersCount = allUsers.filter(u => u.role !== 'super_admin').length;
+
+    // Registrations over time (monthly breakdown for the last 6 months)
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyMap = {};
+    
+    // Initialize last 6 months
+    const d = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const past = new Date(d.getFullYear(), d.getMonth() - i, 1);
+      const key = `${monthNames[past.getMonth()]} ${past.getFullYear().toString().slice(-2)}`;
+      monthlyMap[key] = { month: key, count: 0, active: 0 };
+    }
+
+    businesses.forEach(b => {
+      if (b.createdAt) {
+        const created = new Date(b.createdAt);
+        const key = `${monthNames[created.getMonth()]} ${created.getFullYear().toString().slice(-2)}`;
+        if (monthlyMap[key]) {
+          monthlyMap[key].count++;
+          if (b.isActive && b.status === 'Active') monthlyMap[key].active++;
+        }
+      }
+    });
+
+    const registrationsOverTime = Object.values(monthlyMap);
+
+    // Plan distribution counts
+    const planCounts = {
+      Trial: 0,
+      Basic: 0,
+      Pro: 0,
+      Enterprise: 0,
+      Custom: 0,
+    };
+    businesses.forEach(b => {
+      const p = b.plan || b.subscriptionPlan || 'Pro';
+      if (planCounts[p] !== undefined) {
+        planCounts[p]++;
+      } else {
+        planCounts.Custom++;
+      }
+    });
+
+    // Recent businesses
     const recentBusinesses = [...businesses]
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-      .slice(0, 5);
-
-    const logs = await AuditLog.find({ action: 'LOGIN' });
-    const recentLogins = [...logs]
-      .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
-      .slice(0, 10);
-
-    // Revenue / Plan distribution statistics
-    const planCounts = {
-      Trial: businesses.filter(b => b.subscriptionPlan === 'Trial').length,
-      Basic: businesses.filter(b => b.subscriptionPlan === 'Basic').length,
-      Standard: businesses.filter(b => b.subscriptionPlan === 'Standard').length,
-      Premium: businesses.filter(b => b.subscriptionPlan === 'Premium').length,
-      Enterprise: businesses.filter(b => b.subscriptionPlan === 'Enterprise').length,
-    };
+      .slice(0, 5)
+      .map(b => ({
+        id: b.id || b._id,
+        name: b.name || b.businessName,
+        tenantId: b.tenantId,
+        ownerName: b.ownerName,
+        plan: b.plan || b.subscriptionPlan,
+        status: b.status || b.subscriptionStatus,
+        createdAt: b.createdAt,
+      }));
 
     res.json({
       totalBusinesses,
       activeBusinesses,
-      inactiveBusinesses,
-      expiredBusinesses,
       trialBusinesses,
-      totalUsers: allUsers.length,
-      totalCustomers: allCustomers.length,
-      totalSuppliers: allSuppliers.length,
-      totalSalesRecords: allSales.length,
-      recentBusinesses,
-      recentLogins,
+      suspendedBusinesses,
+      expiredBusinesses,
+      expiringSoonBusinesses,
+      expiringSoonList: expiringSoonList.sort((a, b) => a.daysLeft - b.daysLeft),
+      totalUsers: tenantUsersCount,
+      registrationsOverTime,
       planCounts,
+      recentBusinesses,
     });
   } catch (err) {
     console.error('Error fetching Super Admin stats:', err);
@@ -478,25 +639,45 @@ export async function getSuperAdminStats(req, res) {
 // 9. Get All System Users Across Tenants
 export async function getAllUsers(req, res) {
   try {
-    const users = await User.find();
+    const users = await User.find({ isDeleted: { $ne: true } });
     const businesses = await Business.find();
+    const allLogs = await AuditLog.find();
 
     const bizMap = {};
     businesses.forEach(b => {
-      bizMap[b.tenantId] = b.businessName;
+      bizMap[b.tenantId] = {
+        name: b.name || b.businessName,
+        code: b.businessCode || b.arthiCode,
+      };
     });
 
-    const enriched = users.map(u => ({
-      id: u.id || u._id,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-      role: u.role,
-      status: u.status,
-      tenantId: u.tenantId,
-      businessName: u.role === 'super_admin' ? 'MandiOS Platform' : (bizMap[u.tenantId] || 'Default Market'),
-      createdAt: u.createdAt,
-    }));
+    const enriched = users.map(u => {
+      const uId = u.id || u._id;
+      // Find latest activity or login for this user
+      const userLogs = allLogs.filter(l => l.userId === uId || l.userName === u.name || l.details?.includes(u.email));
+      let lastLogin = u.updatedAt || u.createdAt || '';
+      if (userLogs.length > 0) {
+        const sorted = [...userLogs].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+        lastLogin = sorted[0].timestamp || lastLogin;
+      }
+
+      const tenantInfo = bizMap[u.tenantId];
+
+      return {
+        id: uId,
+        _id: uId,
+        name: u.name || 'User',
+        email: u.email || 'N/A',
+        phone: u.phone || 'N/A',
+        role: u.role || 'Clerk',
+        status: u.status || 'Active',
+        tenantId: u.tenantId || 'platform',
+        businessName: u.role === 'super_admin' ? 'MandiOS Platform Core' : (tenantInfo?.name || 'Unknown Business'),
+        businessCode: tenantInfo?.code || '',
+        lastLogin,
+        createdAt: u.createdAt,
+      };
+    });
 
     res.json(enriched);
   } catch (err) {
@@ -521,13 +702,208 @@ export async function toggleUserStatus(req, res) {
     const nextStatus = user.status === 'Active' ? 'Inactive' : 'Active';
     const updated = await User.findByIdAndUpdate(id, { status: nextStatus });
 
+    // Audit Log for Super Admin Action
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: nextStatus === 'Active' ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+      details: `${nextStatus === 'Active' ? 'Activated' : 'Deactivated'} user "${user.name}" (${user.email}, Role: ${user.role}, Tenant: ${user.tenantId}).`,
+      timestamp: new Date().toISOString(),
+    });
+
     res.json({ message: `User status changed to ${nextStatus}.`, user: updated });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update user status.' });
   }
 }
 
-// 11. Global Settings
+// 11. Super Admin Global Cross-Tenant Search
+export async function searchSuperAdminGlobal(req, res) {
+  try {
+    const { q = '' } = req.query;
+    const queryStr = String(q).trim().toLowerCase();
+
+    if (!queryStr) {
+      return res.json({
+        businesses: [],
+        users: [],
+        customers: [],
+        suppliers: [],
+      });
+    }
+
+    const [businesses, users, customers, suppliers] = await Promise.all([
+      Business.find({ isDeleted: { $ne: true } }),
+      User.find({ isDeleted: { $ne: true } }),
+      Customer.find({ isDeleted: { $ne: true } }),
+      Supplier.find({ isDeleted: { $ne: true } }),
+    ]);
+
+    const bizMap = {};
+    businesses.forEach(b => {
+      bizMap[b.tenantId] = b.name || b.businessName;
+    });
+
+    const matches = (val, term) => {
+      if (!val) return false;
+      return String(val).toLowerCase().includes(term);
+    };
+
+    // 1. Businesses
+    const matchedBusinesses = [];
+    businesses.forEach(b => {
+      if (
+        matches(b.name, queryStr) ||
+        matches(b.businessName, queryStr) ||
+        matches(b.businessCode, queryStr) ||
+        matches(b.arthiCode, queryStr) ||
+        matches(b.ownerName, queryStr) ||
+        matches(b.email, queryStr) ||
+        matches(b.phone, queryStr) ||
+        matches(b.city, queryStr) ||
+        matches(b.tenantId, queryStr)
+      ) {
+        matchedBusinesses.push({
+          id: b.id || b._id,
+          name: b.name || b.businessName,
+          ownerName: b.ownerName,
+          businessCode: b.businessCode || 'N/A',
+          arthiCode: b.arthiCode || 'N/A',
+          tenantId: b.tenantId,
+          email: b.email,
+          phone: b.phone,
+          city: b.city,
+          plan: b.plan || b.subscriptionPlan,
+          status: b.status || b.subscriptionStatus,
+          expiry: b.subscriptionExpiresAt || b.subscriptionExpiryDate,
+          type: 'Business / Tenant',
+        });
+      }
+    });
+
+    // 2. Users
+    const matchedUsers = [];
+    users.forEach(u => {
+      if (
+        matches(u.name, queryStr) ||
+        matches(u.email, queryStr) ||
+        matches(u.phone, queryStr) ||
+        matches(u.role, queryStr)
+      ) {
+        matchedUsers.push({
+          id: u.id || u._id,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          role: u.role,
+          status: u.status,
+          tenantId: u.tenantId,
+          businessName: u.role === 'super_admin' ? 'MandiOS Core' : (bizMap[u.tenantId] || 'Default Market'),
+          type: 'Platform User',
+        });
+      }
+    });
+
+    // 3. Customers
+    const matchedCustomers = [];
+    customers.forEach(c => {
+      if (
+        matches(c.name, queryStr) ||
+        matches(c.phone, queryStr) ||
+        matches(c.khataId, queryStr) ||
+        matches(c.address, queryStr)
+      ) {
+        matchedCustomers.push({
+          id: c.id || c._id,
+          name: c.name,
+          phone: c.phone,
+          khataId: c.khataId || 'N/A',
+          address: c.address || 'N/A',
+          tenantId: c.tenantId,
+          businessName: bizMap[c.tenantId] || 'Mandi Business',
+          currentBalance: c.currentBalance || 0,
+          type: 'Customer Portfolio',
+        });
+      }
+    });
+
+    // 4. Suppliers
+    const matchedSuppliers = [];
+    suppliers.forEach(s => {
+      if (
+        matches(s.name, queryStr) ||
+        matches(s.phone, queryStr) ||
+        matches(s.cnic, queryStr) ||
+        matches(s.khataId, queryStr) ||
+        matches(s.address, queryStr)
+      ) {
+        matchedSuppliers.push({
+          id: s.id || s._id,
+          name: s.name,
+          phone: s.phone,
+          cnic: s.cnic || 'N/A',
+          khataId: s.khataId || 'N/A',
+          address: s.address || 'N/A',
+          tenantId: s.tenantId,
+          businessName: bizMap[s.tenantId] || 'Mandi Business',
+          currentBalance: s.currentBalance || 0,
+          type: 'Supplier Catalog',
+        });
+      }
+    });
+
+    res.json({
+      query: queryStr,
+      totalMatches: matchedBusinesses.length + matchedUsers.length + matchedCustomers.length + matchedSuppliers.length,
+      businesses: matchedBusinesses,
+      users: matchedUsers,
+      customers: matchedCustomers,
+      suppliers: matchedSuppliers,
+    });
+  } catch (err) {
+    console.error('Super Admin Global search error:', err);
+    res.status(500).json({ error: 'Failed to perform search query.' });
+  }
+}
+
+// 12. Super Admin Activity / Audit Logs
+export async function getSuperAdminAuditLogs(req, res) {
+  try {
+    const allLogs = await AuditLog.find();
+    const businesses = await Business.find();
+    
+    const bizMap = {};
+    businesses.forEach(b => {
+      bizMap[b.tenantId] = b.name || b.businessName;
+    });
+
+    const enriched = allLogs.map(l => {
+      const tId = l.tenantId || 'platform';
+      const bName = tId === 'super_admin_logs' ? 'Super Admin System' : (bizMap[tId] || 'Platform Central');
+      return {
+        id: l.id || l._id,
+        action: l.action,
+        performedBy: l.userName || 'Super Admin',
+        userRole: l.userRole || 'super_admin',
+        userId: l.userId,
+        tenantId: tId,
+        businessName: bName,
+        details: l.details || '',
+        timestamp: l.timestamp || l.createdAt || new Date().toISOString(),
+      };
+    });
+
+    const sorted = enriched.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    res.json(sorted.slice(0, 200));
+  } catch (err) {
+    console.error('Error fetching Super Admin audit logs:', err);
+    res.status(500).json({ error: 'Failed to fetch security audit logs.' });
+  }
+}
+
+// 13. Global Settings
 export async function getGlobalSettings(req, res) {
   try {
     let settings = await GlobalSettings.findOne({});
@@ -555,13 +931,24 @@ export async function updateGlobalSettings(req, res) {
     } else {
       settings = await GlobalSettings.findByIdAndUpdate(settings.id || settings._id, req.body);
     }
+
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'SETTINGS_UPDATED',
+      details: 'Updated global platform configuration settings.',
+      timestamp: new Date().toISOString(),
+    });
+
     res.json(settings);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update global settings.' });
   }
 }
 
-// 12. Super Admin Profile Update
+// 14. Super Admin Profile Update
 export async function updateSuperAdminProfile(req, res) {
   try {
     const { name, email, phone, currentPassword, newPassword } = req.body;
@@ -592,7 +979,7 @@ export async function updateSuperAdminProfile(req, res) {
   }
 }
 
-// 13. Suggest Unique Arthi Code
+// 15. Suggest Unique Arthi Code
 export async function suggestArthiCodeHandler(req, res) {
   try {
     const { name } = req.query;
@@ -610,7 +997,7 @@ export async function suggestArthiCodeHandler(req, res) {
   }
 }
 
-// 14. Impersonate Business (Login as Tenant Admin for Support)
+// 16. Impersonate Business (Login as Tenant Admin for Support)
 export async function impersonateBusiness(req, res) {
   try {
     const { id } = req.params;
@@ -639,7 +1026,7 @@ export async function impersonateBusiness(req, res) {
         role: 'Admin',
         tenantId: business.tenantId,
         isImpersonated: true,
-        impersonatedBy: req.user.email || 'super_admin',
+        impersonatedBy: req.user?.email || 'super_admin',
         businessName: business.name || business.businessName,
       },
       JWT_SECRET,
@@ -649,11 +1036,11 @@ export async function impersonateBusiness(req, res) {
     // Record in global Audit Log
     await AuditLog.create({
       tenantId: 'super_admin_logs',
-      userId: req.user.id,
-      userName: req.user.name,
-      userRole: req.user.role,
-      action: 'SUPER_ADMIN_IMPERSONATE',
-      details: `Super Admin started support impersonation session for '${business.name || business.businessName}' (Tenant: ${business.tenantId}).`,
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'SUPPORT_IMPERSONATION',
+      details: `Super Admin started support impersonation session for "${business.name || business.businessName}" (Tenant: ${business.tenantId}).`,
       timestamp: new Date().toISOString(),
     });
 
@@ -667,7 +1054,7 @@ export async function impersonateBusiness(req, res) {
         role: 'Admin',
         tenantId: business.tenantId,
         isImpersonated: true,
-        impersonatedBy: req.user.email || 'super_admin',
+        impersonatedBy: req.user?.email || 'super_admin',
         businessName: business.name || business.businessName,
       },
       business: {
@@ -684,14 +1071,13 @@ export async function impersonateBusiness(req, res) {
   }
 }
 
-// 15. Real-time Platform Health & Telemetry
+// 17. Real-time Platform Health & Telemetry
 export async function getSystemHealth(req, res) {
   try {
     const isMongoReady = mongoose.connection && mongoose.connection.readyState === 1;
     const memory = process.memoryUsage();
     const uptimeSec = process.uptime();
 
-    // Collection counts
     const [
       businessCount,
       userCount,
@@ -725,11 +1111,11 @@ export async function getSystemHealth(req, res) {
     };
 
     res.json({
-      status: isMongoReady ? 'Operational' : 'Degraded',
+      status: isMongoReady ? 'Operational' : 'Ready (Persistent File DB)',
       database: {
-        engine: isMongoReady ? 'MongoDB (Replica/Atlas/Docker)' : 'Local File Persistence Engine',
-        state: isMongoReady ? 'Connected' : 'Fallback Local File Ready',
-        host: mongoose.connection?.host || 'localhost',
+        engine: isMongoReady ? 'MongoDB' : 'Local JSON Persistence Engine',
+        state: isMongoReady ? 'Connected' : 'Persistent Storage Active',
+        host: mongoose.connection?.host || 'local-mandi-data',
         dbName: mongoose.connection?.name || 'mandi_db',
       },
       server: {
@@ -765,46 +1151,19 @@ export async function getSystemHealth(req, res) {
   }
 }
 
-// 16. Disaster Recovery: Full Database JSON Export
+// 18. Database Backup Export
 export async function exportAllDatabaseBackup(req, res) {
   try {
     const [
-      businesses,
-      users,
-      customers,
-      suppliers,
-      products,
-      sales,
-      stockEntries,
-      ledgers,
-      payments,
-      expenses,
-      trucks,
-      employees,
-      salaries,
-      announcements,
-      plans,
-      globalSettings
+      businesses, users, customers, suppliers, products,
+      sales, stockEntries, ledgers, payments, expenses,
+      trucks, employees, salaries, announcements, plans, globalSettings
     ] = await Promise.all([
-      Business.find(),
-      User.find(),
-      Customer.find(),
-      Supplier.find(),
-      Product.find(),
-      Sale.find(),
-      StockEntry.find(),
-      Ledger.find(),
-      Payment.find(),
-      Expense.find(),
-      Truck.find(),
-      Employee.find(),
-      Salary.find(),
-      Announcement.find(),
-      Plan.find(),
-      GlobalSettings.find(),
+      Business.find(), User.find(), Customer.find(), Supplier.find(), Product.find(),
+      Sale.find(), StockEntry.find(), Ledger.find(), Payment.find(), Expense.find(),
+      Truck.find(), Employee.find(), Salary.find(), Announcement.find(), Plan.find(), GlobalSettings.find()
     ]);
 
-    // Sanitize passwords out of backup for security
     const sanitizedUsers = users.map(u => {
       const copy = { ...u };
       delete copy.password;
@@ -814,9 +1173,9 @@ export async function exportAllDatabaseBackup(req, res) {
     const snapshot = {
       meta: {
         system: 'MandiOS Cloud ERP Platform Backup',
-        version: '2.5.0',
+        version: '3.0.0',
         exportedAt: new Date().toISOString(),
-        exportedBy: req.user.email,
+        exportedBy: req.user?.email || 'super_admin',
         totalRecords: businesses.length + users.length + customers.length + suppliers.length + sales.length + stockEntries.length,
       },
       data: {
@@ -848,7 +1207,7 @@ export async function exportAllDatabaseBackup(req, res) {
   }
 }
 
-// 17. Export Single Tenant Data JSON
+// 19. Export Single Tenant Data JSON
 export async function exportTenantData(req, res) {
   try {
     const { tenantId } = req.params;
@@ -857,19 +1216,7 @@ export async function exportTenantData(req, res) {
       return res.status(404).json({ error: 'Business not found.' });
     }
 
-    const [
-      users,
-      customers,
-      suppliers,
-      products,
-      sales,
-      stockEntries,
-      ledgers,
-      payments,
-      expenses,
-      trucks,
-      employees
-    ] = await Promise.all([
+    const [users, customers, suppliers, products, sales, stockEntries, ledgers, payments, expenses, trucks, employees] = await Promise.all([
       User.find({ tenantId }),
       Customer.find({ tenantId }),
       Supplier.find({ tenantId }),
@@ -895,7 +1242,7 @@ export async function exportTenantData(req, res) {
         businessName: business.name || business.businessName,
         arthiCode: business.arthiCode,
         exportedAt: new Date().toISOString(),
-        exportedBy: req.user.email,
+        exportedBy: req.user?.email || 'super_admin',
       },
       data: {
         business,
@@ -922,7 +1269,147 @@ export async function exportTenantData(req, res) {
   }
 }
 
-// 18. Announcements & Broadcasts Management
+// 20. Subscription Plans Management
+export async function getSubscriptionPlans(req, res) {
+  try {
+    let plans = await Plan.find();
+    if (!plans || plans.length === 0) {
+      plans = [
+        await Plan.create({
+          name: 'Basic',
+          priceMonthly: 3000,
+          priceAnnual: 30000,
+          maxUsers: 3,
+          maxProducts: 25,
+          duration: '1 Month',
+          description: 'Essential Mandi Ledger for small single-clerk commission shops.',
+          features: { logistics: false, multiLanguage: true, reportsExport: true, returnsModule: false, smsWhatsApp: false, prioritySupport: false },
+          isPopular: false,
+          status: 'Active',
+        }),
+        await Plan.create({
+          name: 'Pro',
+          priceMonthly: 6000,
+          priceAnnual: 60000,
+          maxUsers: 10,
+          maxProducts: 150,
+          duration: '1 Year',
+          description: 'Full-featured Mandi ERP with truck arrivals, crates & returns tracking.',
+          features: { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: true, prioritySupport: false },
+          isPopular: true,
+          status: 'Active',
+        }),
+        await Plan.create({
+          name: 'Enterprise',
+          priceMonthly: 15000,
+          priceAnnual: 150000,
+          maxUsers: 50,
+          maxProducts: 1000,
+          duration: '1 Year',
+          description: 'High-volume market brokers with multi-branch staff & dedicated support.',
+          features: { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: true, prioritySupport: true },
+          isPopular: false,
+          status: 'Active',
+        })
+      ];
+    }
+    res.json(plans);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch subscription plans.' });
+  }
+}
+
+export async function createSubscriptionPlan(req, res) {
+  try {
+    const { name, priceMonthly, priceAnnual, duration, maxUsers, maxProducts, description, features, isPopular, status } = req.body;
+    if (!name) return res.status(400).json({ error: 'Plan name is required.' });
+
+    const newPlan = await Plan.create({
+      name,
+      priceMonthly: Number(priceMonthly) || 0,
+      priceAnnual: Number(priceAnnual) || 0,
+      duration: duration || '1 Month',
+      maxUsers: Number(maxUsers) || 5,
+      maxProducts: Number(maxProducts) || 50,
+      description: description || '',
+      features: features || { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: false, prioritySupport: false },
+      isPopular: Boolean(isPopular),
+      status: status || 'Active',
+    });
+
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'PLAN_CREATED',
+      details: `Created new SaaS subscription plan "${name}" (PKR ${priceMonthly}/mo).`,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.status(201).json(newPlan);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create plan.' });
+  }
+}
+
+export async function updateSubscriptionPlan(req, res) {
+  try {
+    const { id } = req.params;
+    const updated = await Plan.findByIdAndUpdate(id, req.body);
+
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'PLAN_UPDATED',
+      details: `Updated subscription plan "${req.body.name || updated?.name || id}".`,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update plan.' });
+  }
+}
+
+export async function toggleSubscriptionPlanStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const plan = await Plan.findById(id);
+    if (!plan) return res.status(404).json({ error: 'Plan not found.' });
+
+    const nextStatus = plan.status === 'Active' ? 'Inactive' : 'Active';
+    const updated = await Plan.findByIdAndUpdate(id, { status: nextStatus });
+
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
+      action: 'PLAN_STATUS_CHANGED',
+      details: `${nextStatus === 'Active' ? 'Activated' : 'Deactivated'} plan "${plan.name}".`,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to toggle plan status.' });
+  }
+}
+
+export async function deleteSubscriptionPlan(req, res) {
+  try {
+    const { id } = req.params;
+    await Plan.findByIdAndDelete(id);
+    res.json({ message: 'Plan deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete plan.' });
+  }
+}
+
+// 21. Announcements
 export async function getAnnouncements(req, res) {
   try {
     const list = await Announcement.find();
@@ -945,15 +1432,15 @@ export async function createAnnouncement(req, res) {
       type: type || 'info',
       targetAudience: targetAudience || 'All',
       isActive: true,
-      createdBy: req.user.name || 'Super Admin',
+      createdBy: req.user?.name || 'Super Admin',
       expiresAt: expiresAt || '',
     });
 
     await AuditLog.create({
       tenantId: 'super_admin_logs',
-      userId: req.user.id,
-      userName: req.user.name,
-      userRole: req.user.role,
+      userId: req.user?.id || 'super_admin',
+      userName: req.user?.name || 'Super Admin',
+      userRole: 'super_admin',
       action: 'CREATE_SYSTEM_BROADCAST',
       details: `Published platform broadcast: "${title}".`,
       timestamp: new Date().toISOString(),
@@ -988,150 +1475,30 @@ export async function deleteAnnouncement(req, res) {
   }
 }
 
-// 19. Public / Tenant Endpoint for Active Announcements
 export async function getActiveAnnouncements(req, res) {
   try {
-    const all = await Announcement.find({ isActive: true });
-    const today = new Date().toISOString().split('T')[0];
-    const valid = all.filter(a => !a.expiresAt || a.expiresAt >= today);
+    const now = new Date().toISOString();
+    const list = await Announcement.find({ isActive: true });
+    const valid = list.filter(a => !a.expiresAt || a.expiresAt >= now);
     res.json(valid);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to retrieve active broadcasts.' });
+    res.status(500).json({ error: 'Failed to fetch active announcements.' });
   }
 }
 
-// 20. SaaS Plans & Quotas Management
-export async function getSubscriptionPlans(req, res) {
-  try {
-    let plans = await Plan.find();
-    if (!plans || plans.length === 0) {
-      // Seed initial default plans
-      plans = [
-        await Plan.create({
-          name: 'Basic',
-          priceMonthly: 3000,
-          priceAnnual: 30000,
-          maxUsers: 3,
-          maxProducts: 25,
-          description: 'Essential Mandi Ledger for small single-clerk commission shops.',
-          features: { logistics: false, multiLanguage: true, reportsExport: true, returnsModule: false, smsWhatsApp: false, prioritySupport: false },
-          isPopular: false,
-          status: 'Active',
-        }),
-        await Plan.create({
-          name: 'Pro',
-          priceMonthly: 6000,
-          priceAnnual: 60000,
-          maxUsers: 10,
-          maxProducts: 150,
-          description: 'Full-featured Mandi ERP with truck arrivals, crates & returns tracking.',
-          features: { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: true, prioritySupport: false },
-          isPopular: true,
-          status: 'Active',
-        }),
-        await Plan.create({
-          name: 'Enterprise',
-          priceMonthly: 15000,
-          priceAnnual: 150000,
-          maxUsers: 50,
-          maxProducts: 1000,
-          description: 'High-volume market brokers with multi-branch staff & dedicated support.',
-          features: { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: true, prioritySupport: true },
-          isPopular: false,
-          status: 'Active',
-        })
-      ];
-    }
-    res.json(plans);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch subscription plans.' });
-  }
-}
-
-export async function createSubscriptionPlan(req, res) {
-  try {
-    const { name, priceMonthly, priceAnnual, maxUsers, maxProducts, description, features, isPopular } = req.body;
-    if (!name) return res.status(400).json({ error: 'Plan name is required.' });
-
-    const newPlan = await Plan.create({
-      name,
-      priceMonthly: Number(priceMonthly) || 0,
-      priceAnnual: Number(priceAnnual) || 0,
-      maxUsers: Number(maxUsers) || 5,
-      maxProducts: Number(maxProducts) || 50,
-      description: description || '',
-      features: features || { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: false, prioritySupport: false },
-      isPopular: Boolean(isPopular),
-      status: 'Active',
-    });
-
-    res.status(201).json(newPlan);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to create plan.' });
-  }
-}
-
-export async function updateSubscriptionPlan(req, res) {
-  try {
-    const { id } = req.params;
-    const updated = await Plan.findByIdAndUpdate(id, req.body);
-    res.json(updated);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to update plan.' });
-  }
-}
-
-export async function deleteSubscriptionPlan(req, res) {
-  try {
-    const { id } = req.params;
-    await Plan.findByIdAndDelete(id);
-    res.json({ message: 'Plan deleted successfully.' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to delete plan.' });
-  }
-}
-
-// 21. Update Tenant Quotas & Feature Toggles
 export async function updateTenantFeatures(req, res) {
   try {
     const { id } = req.params;
-    const { features, maxUsers, plan } = req.body;
-
+    const { features } = req.body;
     const business = await Business.findById(id);
     if (!business) return res.status(404).json({ error: 'Business not found.' });
 
     const updated = await Business.findByIdAndUpdate(id, {
-      features: features !== undefined ? features : business.features,
-      maxUsers: maxUsers !== undefined ? Number(maxUsers) : business.maxUsers,
-      plan: plan || business.plan,
-      subscriptionPlan: plan || business.subscriptionPlan,
+      features: { ...(business.features || {}), ...(features || {}) }
     });
-
-    await AuditLog.create({
-      tenantId: 'super_admin_logs',
-      userId: req.user.id,
-      userName: req.user.name,
-      userRole: req.user.role,
-      action: 'UPDATE_TENANT_QUOTAS',
-      details: `Updated quotas & feature toggles for business '${business.name || business.businessName}'.`,
-      timestamp: new Date().toISOString(),
-    });
-
-    res.json({ message: 'Tenant quotas updated successfully.', business: updated });
+    res.json({ message: 'Tenant features updated.', business: updated });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update tenant quotas.' });
+    res.status(500).json({ error: 'Failed to update tenant features.' });
   }
 }
-
-// 22. Get Super Admin Global Security Audit Logs
-export async function getSuperAdminAuditLogs(req, res) {
-  try {
-    const allLogs = await AuditLog.find();
-    const sorted = allLogs.sort((a, b) => new Date(b.timestamp || b.createdAt || 0) - new Date(a.timestamp || a.createdAt || 0));
-    res.json(sorted.slice(0, 100));
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch global audit logs.' });
-  }
-}
-
 

@@ -6,7 +6,8 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import { TAB_TO_PATH, PATH_TO_TAB } from '../utils/routes.js';
 import {
   Home, Users, ShoppingBag, Boxes, FileText, DollarSign,
-  LogOut, Menu, X, ShieldAlert, Clock, Sun, Moon, Activity, Settings, Truck, Briefcase, Trash2, BarChart2, Calendar, Layers, RotateCcw
+  LogOut, Menu, X, ShieldAlert, Clock, Sun, Moon, Activity, Settings, Truck, Briefcase, Trash2, BarChart2, Calendar, Layers, RotateCcw,
+  Building2, Search
 } from 'lucide-react';
 
 export default function Layout({ children, currentTab: propCurrentTab, setCurrentTab: propSetCurrentTab }) {
@@ -89,8 +90,12 @@ export default function Layout({ children, currentTab: propCurrentTab, setCurren
   ];
 
   const superAdminMenu = [
-    { id: 'saas-dashboard', name: 'SaaS Management', icon: Activity },
-    { id: 'reports', name: 'SaaS Analytics', icon: FileText },
+    { id: 'saas-dashboard', name: 'Dashboard', icon: Activity },
+    { id: 'businesses', name: 'Businesses / Tenants', icon: Building2 },
+    { id: 'subscriptions', name: 'Subscriptions', icon: Layers },
+    { id: 'users', name: 'Users Overview', icon: Users },
+    { id: 'search', name: 'Global Search', icon: Search },
+    { id: 'audit', name: 'Audit Logs', icon: FileText },
     { id: 'settings', name: 'Platform Settings', icon: Settings },
   ];
 
