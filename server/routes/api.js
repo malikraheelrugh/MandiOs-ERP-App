@@ -46,7 +46,8 @@ import {
   impersonateBusiness, getSystemHealth, exportAllDatabaseBackup, exportTenantData,
   getAnnouncements, createAnnouncement, toggleAnnouncementStatus, deleteAnnouncement,
   getActiveAnnouncements, getSubscriptionPlans, createSubscriptionPlan,
-  updateSubscriptionPlan, deleteSubscriptionPlan, updateTenantFeatures, getSuperAdminAuditLogs
+  updateSubscriptionPlan, deleteSubscriptionPlan, toggleSubscriptionPlanStatus,
+  updateTenantFeatures, getSuperAdminAuditLogs, searchSuperAdminGlobal
 } from '../controllers/superAdminController.js';
 
 const router = express.Router();
@@ -247,9 +248,13 @@ router.delete('/super-admin/announcements/:id', authenticateJWT, authorizeRoles(
 router.get('/super-admin/plans', authenticateJWT, authorizeRoles('super_admin'), getSubscriptionPlans);
 router.post('/super-admin/plans', authenticateJWT, authorizeRoles('super_admin'), createSubscriptionPlan);
 router.put('/super-admin/plans/:id', authenticateJWT, authorizeRoles('super_admin'), updateSubscriptionPlan);
+router.patch('/super-admin/plans/:id/status', authenticateJWT, authorizeRoles('super_admin'), toggleSubscriptionPlanStatus);
 router.delete('/super-admin/plans/:id', authenticateJWT, authorizeRoles('super_admin'), deleteSubscriptionPlan);
 
 // Global Security Audit Logs
 router.get('/super-admin/audit-logs', authenticateJWT, authorizeRoles('super_admin'), getSuperAdminAuditLogs);
+
+// Cross-Tenant Global Search
+router.get('/super-admin/search', authenticateJWT, authorizeRoles('super_admin'), searchSuperAdminGlobal);
 
 export default router;
