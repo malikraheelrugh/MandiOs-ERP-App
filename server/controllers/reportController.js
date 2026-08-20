@@ -228,15 +228,38 @@ export async function getReports(req, res) {
       }
     });
 
-    // Deduct approved returns from Gross Sales Revenue, Sold Quantity, and Total Cost of Stock
+    // Deduct approved returns from Gross Sales Revenue (stock value + commission of return stock), Sold Quantity, and Total Cost of Stock
     let totalReturnedGrossSalesValue = 0;
     let totalReturnedProduceQty = 0;
     let totalReturnedStockCost = 0;
+    let totalReturnedSaleValue = 0;
+    let totalReturnedBuyerCommission = 0;
+    let walkInReturnsDeduction = 0;
+
     filteredReturns.forEach(ret => {
       const retQty = Number(ret.produceReturnedQty) || 0;
       const retGross = Number(ret.grossReturnAmount) || (retQty * (Number(ret.saleRate) || 0));
+
+      const matchingSale = ret.saleId ? allSales.find(s => String(s.id || s._id) === String(ret.saleId)) : null;
+      let retComm = Number(ret.commissionReversedAmount) || 0;
+      if (!retComm && retQty > 0) {
+        if (matchingSale && Number(matchingSale.quantity) > 0 && Number(matchingSale.commissionAmount) > 0) {
+          retComm = retQty * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+        } else {
+          const commRate = parseFloat(String(ret.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+          retComm = retGross * (commRate / 100);
+        }
+      }
+      const totalReturnDeduction = Number(ret.returnAmount) || (retGross + retComm);
+
       totalReturnedGrossSalesValue += retGross;
+      totalReturnedBuyerCommission += retComm;
+      totalReturnedSaleValue += totalReturnDeduction;
       totalReturnedProduceQty += retQty;
+
+      if (matchingSale?.isWalkIn || ret.isWalkIn) {
+        walkInReturnsDeduction += totalReturnDeduction;
+      }
 
       // Determine unit cost for the returned consignment / stock entry
       let stId = ret.stockEntryId ? String(ret.stockEntryId) : null;
@@ -260,10 +283,11 @@ export async function getReports(req, res) {
       totalReturnedStockCost += (retQty * unitCost);
     });
 
-    const totalSales = Math.max(0, Math.round((rawSalesTotal - totalReturnedGrossSalesValue) * 100) / 100);
+    const totalSales = Math.max(0, Math.round((rawSalesTotal - totalReturnedSaleValue) * 100) / 100);
     const totalSalesQty = Math.max(0, rawSalesQty - totalReturnedProduceQty);
     const totalPurchases = Math.max(0, Math.round((rawPurchasesTotal - totalReturnedStockCost) * 100) / 100);
     const totalPurchasesQty = Math.max(0, rawPurchasesQty - totalReturnedProduceQty);
+    const netWalkInRevenue = Math.max(0, Math.round((walkInRevenue - walkInReturnsDeduction) * 100) / 100);
 
     // Compute dynamic commissions for filtered sales (Customer Commission - reversed on returns)
     let totalCustomerCommission = 0;
@@ -734,6 +758,29 @@ export async function getReports(req, res) {
       }
     }
 
+    // Deduct returns from time series
+    filteredReturns.forEach(ret => {
+      const key = ret.date;
+      if (timeSeriesGroup[key]) {
+        const retQty = Number(ret.produceReturnedQty) || 0;
+        const retGross = Number(ret.grossReturnAmount) || (retQty * (Number(ret.saleRate) || 0));
+        let retComm = Number(ret.commissionReversedAmount) || 0;
+        if (!retComm && retQty > 0) {
+          const matchingSale = ret.saleId ? allSales.find(s => String(s.id || s._id) === String(ret.saleId)) : null;
+          if (matchingSale && Number(matchingSale.quantity) > 0 && Number(matchingSale.commissionAmount) > 0) {
+            retComm = retQty * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+          } else {
+            const commRate = parseFloat(String(ret.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+            retComm = retGross * (commRate / 100);
+          }
+        }
+        const totalRetDeduction = Number(ret.returnAmount) || (retGross + retComm);
+        timeSeriesGroup[key].sales = Math.max(0, timeSeriesGroup[key].sales - totalRetDeduction);
+        timeSeriesGroup[key].customerCommission = Math.max(0, timeSeriesGroup[key].customerCommission - retComm);
+        timeSeriesGroup[key].commission = Math.max(0, timeSeriesGroup[key].commission - retComm);
+      }
+    });
+
     const salesAndCommissionTimeSeries = Object.values(timeSeriesGroup)
       .sort((a, b) => a.date.localeCompare(b.date))
       .map(item => ({
@@ -780,7 +827,7 @@ export async function getReports(req, res) {
         netProfit,
         totalReceivables,
         totalPayables,
-        walkInRevenue
+        walkInRevenue: netWalkInRevenue
       },
       stockSummary: {
         totalTrucksArrived: allTrucks.filter(t => inRange(t.arrivalDate)).length,
@@ -1167,9 +1214,41 @@ export async function getReportData(req, res) {
         const netCashFlow = Math.round((periodCashInflows - periodCashOutflows) * 100) / 100;
 
         const periodSales = allSales.filter(s => s.date >= startStr && s.date <= endStr);
-        const totalSalesVolume = periodSales.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
-        const totalSalesAmount = periodSales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
-        const totalBuyerCommission = periodSales.reduce((sum, s) => sum + (Number(s.commissionAmount) || 0), 0);
+        const rawSalesVol = periodSales.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
+        const rawSalesAmt = periodSales.reduce((sum, s) => sum + (Number(s.totalAmount) || 0), 0);
+        const rawBuyerComm = periodSales.reduce((sum, s) => sum + (Number(s.commissionAmount) || 0), 0);
+
+        const periodReturns = (allReturns || []).filter(r => r.date >= startStr && r.date <= endStr);
+        const returnedSalesVol = periodReturns.reduce((sum, r) => sum + (Number(r.produceReturnedQty) || 0), 0);
+        const returnedSalesAmt = periodReturns.reduce((sum, r) => {
+          const retQty = Number(r.produceReturnedQty) || 0;
+          const retGross = Number(r.grossReturnAmount) || (retQty * Number(r.saleRate || 0));
+          let retComm = Number(r.commissionReversedAmount) || 0;
+          if (!retComm && retQty > 0) {
+            const matchingSale = r.saleId ? allSales.find(s => String(s.id || s._id) === String(r.saleId)) : null;
+            if (matchingSale && Number(matchingSale.quantity) > 0 && Number(matchingSale.commissionAmount) > 0) {
+              retComm = retQty * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+            } else {
+              const commRate = parseFloat(String(r.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+              retComm = retGross * (commRate / 100);
+            }
+          }
+          return sum + (Number(r.returnAmount) || (retGross + retComm));
+        }, 0);
+        const returnedBuyerComm = periodReturns.reduce((sum, r) => {
+          let rev = Number(r.commissionReversedAmount) || 0;
+          if (!rev && Number(r.produceReturnedQty) > 0) {
+            const matchingSale = r.saleId ? allSales.find(s => String(s.id || s._id) === String(r.saleId)) : null;
+            if (matchingSale && Number(matchingSale.quantity) > 0 && Number(matchingSale.commissionAmount) > 0) {
+              rev = Number(r.produceReturnedQty) * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+            }
+          }
+          return sum + (rev || 0);
+        }, 0);
+
+        const totalSalesVolume = Math.max(0, rawSalesVol - returnedSalesVol);
+        const totalSalesAmount = Math.max(0, rawSalesAmt - returnedSalesAmt);
+        const totalBuyerCommission = Math.max(0, rawBuyerComm - returnedBuyerComm);
 
         const periodStock = allStock.filter(st => st.date >= startStr && st.date <= endStr);
         const totalArrivalVolume = periodStock.reduce((sum, st) => sum + (Number(st.quantity) || 0), 0);
@@ -1371,8 +1450,13 @@ export async function getReportData(req, res) {
           const sReturns = returnsBySaleId.get(String(s.id || s._id)) || [];
           const retQty = sReturns.reduce((sum, r) => sum + (Number(r.produceReturnedQty) || 0), 0);
           const retGross = sReturns.reduce((sum, r) => sum + (Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0))), 0);
+          const retTotalDeduction = sReturns.reduce((sum, r) => {
+            const g = Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0));
+            const c = Number(r.commissionReversedAmount) || 0;
+            return sum + (Number(r.returnAmount) || (g + c));
+          }, 0);
           const netQty = Math.max(0, (s.quantity || 0) - retQty);
-          const netAmt = Math.max(0, (s.totalAmount || (s.quantity * (s.saleRate || 0)) || 0) - retGross);
+          const netAmt = Math.max(0, (s.totalAmount || (s.quantity * (s.saleRate || 0)) || 0) - retTotalDeduction);
           
           totQty += netQty;
           totAmt += netAmt;
@@ -2850,6 +2934,51 @@ export async function getReportData(req, res) {
           obj.suppComm += suppComm;
           obj.tradeValue += (Number(s.totalAmount) || grossVal);
           obj.volume += qty;
+        });
+
+        // 1b. Deduct Returns in the Period from monthly profit
+        const matchingReturns = (allReturns || []).filter(r => {
+          const rDate = r.date || (r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : '');
+          if (!rDate) return false;
+          if (startStr && rDate < startStr) return false;
+          if (endStr && rDate > endStr) return false;
+          return true;
+        });
+
+        matchingReturns.forEach(r => {
+          const rDate = r.date || (r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : '');
+          const mKey = rDate.substring(0, 7);
+          if (monthMap.has(mKey)) {
+            const obj = monthMap.get(mKey);
+            const rQty = Number(r.produceReturnedQty) || 0;
+            const rGross = Number(r.grossReturnAmount) || (rQty * Number(r.saleRate || 0));
+            let rCustComm = Number(r.commissionReversedAmount) || 0;
+            if (!rCustComm && rQty > 0) {
+              const matchingSale = r.saleId ? allSales.find(s => String(s.id || s._id) === String(r.saleId)) : null;
+              if (matchingSale && Number(matchingSale.quantity) > 0 && Number(matchingSale.commissionAmount) > 0) {
+                rCustComm = rQty * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+              }
+            }
+            const rTotalDeduction = Number(r.returnAmount) || (rGross + rCustComm);
+
+            let rSuppComm = 0;
+            const stId = r.stockEntryId;
+            const stockEntry = stId ? stockMap.get(stId) : null;
+            if (stockEntry) {
+              const commVal = Number(stockEntry.supplierCommissionValue) || 0;
+              const commType = stockEntry.supplierCommissionType || 'Percentage';
+              if (commType === 'Percentage') {
+                rSuppComm = rGross * ((commVal > 0 ? commVal : 5) / 100);
+              } else if (commType === 'Per Unit') {
+                rSuppComm = rQty * (commVal > 0 ? commVal : 10);
+              }
+            }
+
+            obj.custComm = Math.max(0, obj.custComm - rCustComm);
+            obj.suppComm = Math.max(0, obj.suppComm - rSuppComm);
+            obj.tradeValue = Math.max(0, obj.tradeValue - rTotalDeduction);
+            obj.volume = Math.max(0, obj.volume - rQty);
+          }
         });
 
         // 2. Process Supplier Consignments with direct settlements or unsolds in the period

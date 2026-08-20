@@ -213,6 +213,7 @@ export default function LotDetailsPage() {
 
   const computedTotalDeductions = Math.round((computedSupplierCommDeduction + computedMarketFeeDeduction + computedTotalExpenses) * 100) / 100;
   const computedNetPayable = Math.round((lotGrossSales - computedTotalDeductions) * 100) / 100;
+  const totalBrokerCommission = Math.round((netBuyerCommission + computedSupplierCommDeduction) * 100) / 100;
 
   const handleSaveLotFinancials = async () => {
     if (!activeStock) return;
@@ -449,7 +450,10 @@ export default function LotDetailsPage() {
             <div className="bg-white dark:bg-[#1E293B] p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <span className="text-[10px] font-black uppercase text-slate-500 block">Broker Commission</span>
               <p className="text-base font-black text-indigo-600 dark:text-indigo-400 mt-1">
-                Rs. {netBuyerCommission.toLocaleString()}
+                Rs. {totalBrokerCommission.toLocaleString()}
+              </p>
+              <p className="text-[9px] opacity-60 font-semibold uppercase mt-0.5">
+                Buyer: Rs. {netBuyerCommission.toLocaleString()} | Supp: Rs. {Math.round(computedSupplierCommDeduction).toLocaleString()}
               </p>
             </div>
           </div>

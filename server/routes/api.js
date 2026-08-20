@@ -42,13 +42,18 @@ import {
 import {
   getBusinesses, createBusiness, editBusiness, toggleBusinessStatus, resetOwnerPassword,
   renewSubscription, deleteBusiness, getSuperAdminStats, getAllUsers, toggleUserStatus,
-  getGlobalSettings, updateGlobalSettings, updateSuperAdminProfile, suggestArthiCodeHandler
+  getGlobalSettings, updateGlobalSettings, updateSuperAdminProfile, suggestArthiCodeHandler,
+  impersonateBusiness, getSystemHealth, exportAllDatabaseBackup, exportTenantData,
+  getAnnouncements, createAnnouncement, toggleAnnouncementStatus, deleteAnnouncement,
+  getActiveAnnouncements, getSubscriptionPlans, createSubscriptionPlan,
+  updateSubscriptionPlan, deleteSubscriptionPlan, updateTenantFeatures, getSuperAdminAuditLogs
 } from '../controllers/superAdminController.js';
 
 const router = express.Router();
 
 // --- PUBLIC ROUTES ---
 router.post('/auth/login', login);
+router.get('/announcements/active', getActiveAnnouncements);
 
 // --- PROTECTED ROUTES (Requires Login) ---
 router.get('/auth/profile', authenticateJWT, getProfile);
@@ -218,5 +223,33 @@ router.patch('/super-admin/users/:id/status', authenticateJWT, authorizeRoles('s
 router.get('/super-admin/settings', authenticateJWT, authorizeRoles('super_admin'), getGlobalSettings);
 router.put('/super-admin/settings', authenticateJWT, authorizeRoles('super_admin'), updateGlobalSettings);
 router.put('/super-admin/profile', authenticateJWT, authorizeRoles('super_admin'), updateSuperAdminProfile);
+
+// Support Impersonation
+router.post('/super-admin/businesses/:id/impersonate', authenticateJWT, authorizeRoles('super_admin'), impersonateBusiness);
+
+// Quotas & Features
+router.put('/super-admin/businesses/:id/features', authenticateJWT, authorizeRoles('super_admin'), updateTenantFeatures);
+
+// Telemetry & Health
+router.get('/super-admin/system-health', authenticateJWT, authorizeRoles('super_admin'), getSystemHealth);
+
+// Backup & Disaster Recovery
+router.get('/super-admin/backup/export-all', authenticateJWT, authorizeRoles('super_admin'), exportAllDatabaseBackup);
+router.get('/super-admin/backup/export-tenant/:tenantId', authenticateJWT, authorizeRoles('super_admin'), exportTenantData);
+
+// Broadcasts & Announcements (Super Admin Management)
+router.get('/super-admin/announcements', authenticateJWT, authorizeRoles('super_admin'), getAnnouncements);
+router.post('/super-admin/announcements', authenticateJWT, authorizeRoles('super_admin'), createAnnouncement);
+router.patch('/super-admin/announcements/:id/toggle', authenticateJWT, authorizeRoles('super_admin'), toggleAnnouncementStatus);
+router.delete('/super-admin/announcements/:id', authenticateJWT, authorizeRoles('super_admin'), deleteAnnouncement);
+
+// Subscription Plans & Quotas
+router.get('/super-admin/plans', authenticateJWT, authorizeRoles('super_admin'), getSubscriptionPlans);
+router.post('/super-admin/plans', authenticateJWT, authorizeRoles('super_admin'), createSubscriptionPlan);
+router.put('/super-admin/plans/:id', authenticateJWT, authorizeRoles('super_admin'), updateSubscriptionPlan);
+router.delete('/super-admin/plans/:id', authenticateJWT, authorizeRoles('super_admin'), deleteSubscriptionPlan);
+
+// Global Security Audit Logs
+router.get('/super-admin/audit-logs', authenticateJWT, authorizeRoles('super_admin'), getSuperAdminAuditLogs);
 
 export default router;

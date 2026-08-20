@@ -849,10 +849,19 @@ export default function SoldConsignments({ user, setCurrentTab }) {
   const lotQtySold = Math.max(0, rawLotQtySold - lotReturnedQty);
 
   const rawLotBuyerComm = lotSalesList.reduce((acc, curr) => acc + (Number(curr.commissionAmount) || Number(curr.commission) || 0), 0);
-  const lotReturnedBuyerComm = lotReturnsList.reduce((acc, curr) => {
-    const rate = Number(curr.commissionRate) || 0;
-    const rGross = Number(curr.grossReturnAmount) || (Number(curr.produceReturnedQty || 0) * Number(curr.saleRate || 0));
-    return acc + (rGross * (rate / 100));
+  const lotReturnedBuyerComm = lotReturnsList.reduce((acc, r) => {
+    let rev = Number(r.commissionReversedAmount) || 0;
+    if (!rev && Number(r.produceReturnedQty) > 0) {
+      const matchingSale = lotSalesList.find(s => String(s.id || s._id) === String(r.saleId));
+      if (matchingSale && matchingSale.quantity > 0 && matchingSale.commissionAmount > 0) {
+        rev = Number(r.produceReturnedQty) * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+      } else {
+        const commRate = parseFloat(String(r.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+        const retGross = Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0));
+        rev = retGross * (commRate / 100);
+      }
+    }
+    return acc + (rev || 0);
   }, 0);
   const lotBuyerComm = Math.max(0, Math.round((rawLotBuyerComm - lotReturnedBuyerComm) * 100) / 100);
 
@@ -1621,7 +1630,7 @@ export default function SoldConsignments({ user, setCurrentTab }) {
                           <th className="py-2.5 px-3 text-right">Returned Qty</th>
                           <th className="py-2.5 px-3 text-right">Sale Rate</th>
                           <th className="py-2.5 px-3 text-right text-rose-600">Gross Return Minus</th>
-                          <th className="py-2.5 px-3">Condition</th>
+                          <th className="py-2.5 px-3">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-rose-100 dark:divide-rose-900/30">
@@ -1637,7 +1646,7 @@ export default function SoldConsignments({ user, setCurrentTab }) {
                             </td>
                             <td className="py-2.5 px-3">
                               <span className="text-[9px] px-2 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-600">
-                                {ret.produceCondition || 'Good'} (Restocked)
+                                Produce Restocked
                               </span>
                             </td>
                           </tr>

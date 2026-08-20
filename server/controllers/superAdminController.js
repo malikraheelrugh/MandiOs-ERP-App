@@ -1,7 +1,15 @@
 import bcryptjs from 'bcryptjs';
-import { Business, GlobalSettings, User, Customer, Supplier, Sale, AuditLog } from '../models/index.js';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import { 
+  Business, GlobalSettings, User, Customer, Supplier, Sale, StockEntry, 
+  Ledger, Payment, AuditLog, Expense, Truck, Employee, Salary, SalaryAdvance,
+  Announcement, Plan, Product
+} from '../models/index.js';
 import { BusinessSettings } from '../models/settings.js';
 import { generateSuggestedArthiCode, validateArthiCode } from '../utils/counter.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'mandi-secret-key-123!';
 
 // 1. Get List of All Businesses
 export async function getBusinesses(req, res) {
@@ -601,4 +609,529 @@ export async function suggestArthiCodeHandler(req, res) {
     res.status(500).json({ error: 'Failed to generate suggested code.' });
   }
 }
+
+// 14. Impersonate Business (Login as Tenant Admin for Support)
+export async function impersonateBusiness(req, res) {
+  try {
+    const { id } = req.params;
+    const business = await Business.findById(id);
+    if (!business) {
+      return res.status(404).json({ error: 'Business not found.' });
+    }
+
+    // Find the Admin user for this tenant
+    let targetUser = await User.findOne({ tenantId: business.tenantId, role: 'Admin' });
+    if (!targetUser) {
+      targetUser = await User.findOne({ email: business.email });
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ error: 'No Admin user account exists for this business to impersonate.' });
+    }
+
+    // Create signed token with impersonation metadata
+    const impersonatedToken = jwt.sign(
+      {
+        id: targetUser.id || targetUser._id,
+        email: targetUser.email,
+        khataId: targetUser.khataId || '',
+        name: targetUser.name,
+        role: 'Admin',
+        tenantId: business.tenantId,
+        isImpersonated: true,
+        impersonatedBy: req.user.email || 'super_admin',
+        businessName: business.name || business.businessName,
+      },
+      JWT_SECRET,
+      { expiresIn: '4h' }
+    );
+
+    // Record in global Audit Log
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'SUPER_ADMIN_IMPERSONATE',
+      details: `Super Admin started support impersonation session for '${business.name || business.businessName}' (Tenant: ${business.tenantId}).`,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json({
+      message: `Support Impersonation active for ${business.name || business.businessName}`,
+      token: impersonatedToken,
+      user: {
+        id: targetUser.id || targetUser._id,
+        name: targetUser.name,
+        email: targetUser.email,
+        role: 'Admin',
+        tenantId: business.tenantId,
+        isImpersonated: true,
+        impersonatedBy: req.user.email || 'super_admin',
+        businessName: business.name || business.businessName,
+      },
+      business: {
+        id: business.id || business._id,
+        name: business.name || business.businessName,
+        tenantId: business.tenantId,
+        arthiCode: business.arthiCode,
+        plan: business.plan || business.subscriptionPlan,
+      }
+    });
+  } catch (err) {
+    console.error('Error impersonating business:', err);
+    res.status(500).json({ error: 'Failed to initiate support impersonation session.' });
+  }
+}
+
+// 15. Real-time Platform Health & Telemetry
+export async function getSystemHealth(req, res) {
+  try {
+    const isMongoReady = mongoose.connection && mongoose.connection.readyState === 1;
+    const memory = process.memoryUsage();
+    const uptimeSec = process.uptime();
+
+    // Collection counts
+    const [
+      businessCount,
+      userCount,
+      customerCount,
+      supplierCount,
+      saleCount,
+      stockCount,
+      paymentCount,
+      auditLogCount,
+      announcementCount,
+      productCount
+    ] = await Promise.all([
+      Business.countDocuments ? Business.countDocuments() : (await Business.find()).length,
+      User.countDocuments ? User.countDocuments() : (await User.find()).length,
+      Customer.countDocuments ? Customer.countDocuments() : (await Customer.find()).length,
+      Supplier.countDocuments ? Supplier.countDocuments() : (await Supplier.find()).length,
+      Sale.countDocuments ? Sale.countDocuments() : (await Sale.find()).length,
+      StockEntry.countDocuments ? StockEntry.countDocuments() : (await StockEntry.find()).length,
+      Payment.countDocuments ? Payment.countDocuments() : (await Payment.find()).length,
+      AuditLog.countDocuments ? AuditLog.countDocuments() : (await AuditLog.find()).length,
+      Announcement.countDocuments ? Announcement.countDocuments() : (await Announcement.find()).length,
+      Product.countDocuments ? Product.countDocuments() : (await Product.find()).length,
+    ]);
+
+    const formatUptime = (seconds) => {
+      const d = Math.floor(seconds / (3600 * 24));
+      const h = Math.floor((seconds % (3600 * 24)) / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      return `${d > 0 ? d + 'd ' : ''}${h}h ${m}m ${s}s`;
+    };
+
+    res.json({
+      status: isMongoReady ? 'Operational' : 'Degraded',
+      database: {
+        engine: isMongoReady ? 'MongoDB (Replica/Atlas/Docker)' : 'Local File Persistence Engine',
+        state: isMongoReady ? 'Connected' : 'Fallback Local File Ready',
+        host: mongoose.connection?.host || 'localhost',
+        dbName: mongoose.connection?.name || 'mandi_db',
+      },
+      server: {
+        uptime: formatUptime(uptimeSec),
+        uptimeSeconds: Math.floor(uptimeSec),
+        nodeVersion: process.version,
+        platform: process.platform,
+        arch: process.arch,
+        pid: process.pid,
+      },
+      memory: {
+        rssMb: (memory.rss / 1024 / 1024).toFixed(1),
+        heapUsedMb: (memory.heapUsed / 1024 / 1024).toFixed(1),
+        heapTotalMb: (memory.heapTotal / 1024 / 1024).toFixed(1),
+      },
+      counts: {
+        businesses: businessCount,
+        users: userCount,
+        customers: customerCount,
+        suppliers: supplierCount,
+        products: productCount,
+        sales: saleCount,
+        stockEntries: stockCount,
+        payments: paymentCount,
+        auditLogs: auditLogCount,
+        announcements: announcementCount,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Error fetching system health:', err);
+    res.status(500).json({ error: 'Failed to retrieve system telemetry.' });
+  }
+}
+
+// 16. Disaster Recovery: Full Database JSON Export
+export async function exportAllDatabaseBackup(req, res) {
+  try {
+    const [
+      businesses,
+      users,
+      customers,
+      suppliers,
+      products,
+      sales,
+      stockEntries,
+      ledgers,
+      payments,
+      expenses,
+      trucks,
+      employees,
+      salaries,
+      announcements,
+      plans,
+      globalSettings
+    ] = await Promise.all([
+      Business.find(),
+      User.find(),
+      Customer.find(),
+      Supplier.find(),
+      Product.find(),
+      Sale.find(),
+      StockEntry.find(),
+      Ledger.find(),
+      Payment.find(),
+      Expense.find(),
+      Truck.find(),
+      Employee.find(),
+      Salary.find(),
+      Announcement.find(),
+      Plan.find(),
+      GlobalSettings.find(),
+    ]);
+
+    // Sanitize passwords out of backup for security
+    const sanitizedUsers = users.map(u => {
+      const copy = { ...u };
+      delete copy.password;
+      return copy;
+    });
+
+    const snapshot = {
+      meta: {
+        system: 'MandiOS Cloud ERP Platform Backup',
+        version: '2.5.0',
+        exportedAt: new Date().toISOString(),
+        exportedBy: req.user.email,
+        totalRecords: businesses.length + users.length + customers.length + suppliers.length + sales.length + stockEntries.length,
+      },
+      data: {
+        businesses,
+        users: sanitizedUsers,
+        customers,
+        suppliers,
+        products,
+        sales,
+        stockEntries,
+        ledgers,
+        payments,
+        expenses,
+        trucks,
+        employees,
+        salaries,
+        announcements,
+        plans,
+        globalSettings,
+      }
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=mandios_full_backup_${Date.now()}.json`);
+    res.send(JSON.stringify(snapshot, null, 2));
+  } catch (err) {
+    console.error('Error creating database backup:', err);
+    res.status(500).json({ error: 'Failed to generate database backup.' });
+  }
+}
+
+// 17. Export Single Tenant Data JSON
+export async function exportTenantData(req, res) {
+  try {
+    const { tenantId } = req.params;
+    const business = await Business.findOne({ tenantId });
+    if (!business) {
+      return res.status(404).json({ error: 'Business not found.' });
+    }
+
+    const [
+      users,
+      customers,
+      suppliers,
+      products,
+      sales,
+      stockEntries,
+      ledgers,
+      payments,
+      expenses,
+      trucks,
+      employees
+    ] = await Promise.all([
+      User.find({ tenantId }),
+      Customer.find({ tenantId }),
+      Supplier.find({ tenantId }),
+      Product.find({ tenantId }),
+      Sale.find({ tenantId }),
+      StockEntry.find({ tenantId }),
+      Ledger.find({ tenantId }),
+      Payment.find({ tenantId }),
+      Expense.find({ tenantId }),
+      Truck.find({ tenantId }),
+      Employee.find({ tenantId }),
+    ]);
+
+    const sanitizedUsers = users.map(u => {
+      const copy = { ...u };
+      delete copy.password;
+      return copy;
+    });
+
+    const tenantSnapshot = {
+      meta: {
+        tenantId,
+        businessName: business.name || business.businessName,
+        arthiCode: business.arthiCode,
+        exportedAt: new Date().toISOString(),
+        exportedBy: req.user.email,
+      },
+      data: {
+        business,
+        users: sanitizedUsers,
+        customers,
+        suppliers,
+        products,
+        sales,
+        stockEntries,
+        ledgers,
+        payments,
+        expenses,
+        trucks,
+        employees,
+      }
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=tenant_${tenantId}_export_${Date.now()}.json`);
+    res.send(JSON.stringify(tenantSnapshot, null, 2));
+  } catch (err) {
+    console.error('Error exporting tenant data:', err);
+    res.status(500).json({ error: 'Failed to export tenant data.' });
+  }
+}
+
+// 18. Announcements & Broadcasts Management
+export async function getAnnouncements(req, res) {
+  try {
+    const list = await Announcement.find();
+    res.json(list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch announcements.' });
+  }
+}
+
+export async function createAnnouncement(req, res) {
+  try {
+    const { title, message, type, targetAudience, expiresAt } = req.body;
+    if (!title || !message) {
+      return res.status(400).json({ error: 'Title and message are required.' });
+    }
+
+    const item = await Announcement.create({
+      title,
+      message,
+      type: type || 'info',
+      targetAudience: targetAudience || 'All',
+      isActive: true,
+      createdBy: req.user.name || 'Super Admin',
+      expiresAt: expiresAt || '',
+    });
+
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'CREATE_SYSTEM_BROADCAST',
+      details: `Published platform broadcast: "${title}".`,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.status(201).json(item);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to publish announcement.' });
+  }
+}
+
+export async function toggleAnnouncementStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const item = await Announcement.findById(id);
+    if (!item) return res.status(404).json({ error: 'Announcement not found.' });
+
+    const updated = await Announcement.findByIdAndUpdate(id, { isActive: !item.isActive });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update announcement.' });
+  }
+}
+
+export async function deleteAnnouncement(req, res) {
+  try {
+    const { id } = req.params;
+    await Announcement.findByIdAndDelete(id);
+    res.json({ message: 'Announcement deleted.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete announcement.' });
+  }
+}
+
+// 19. Public / Tenant Endpoint for Active Announcements
+export async function getActiveAnnouncements(req, res) {
+  try {
+    const all = await Announcement.find({ isActive: true });
+    const today = new Date().toISOString().split('T')[0];
+    const valid = all.filter(a => !a.expiresAt || a.expiresAt >= today);
+    res.json(valid);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve active broadcasts.' });
+  }
+}
+
+// 20. SaaS Plans & Quotas Management
+export async function getSubscriptionPlans(req, res) {
+  try {
+    let plans = await Plan.find();
+    if (!plans || plans.length === 0) {
+      // Seed initial default plans
+      plans = [
+        await Plan.create({
+          name: 'Basic',
+          priceMonthly: 3000,
+          priceAnnual: 30000,
+          maxUsers: 3,
+          maxProducts: 25,
+          description: 'Essential Mandi Ledger for small single-clerk commission shops.',
+          features: { logistics: false, multiLanguage: true, reportsExport: true, returnsModule: false, smsWhatsApp: false, prioritySupport: false },
+          isPopular: false,
+          status: 'Active',
+        }),
+        await Plan.create({
+          name: 'Pro',
+          priceMonthly: 6000,
+          priceAnnual: 60000,
+          maxUsers: 10,
+          maxProducts: 150,
+          description: 'Full-featured Mandi ERP with truck arrivals, crates & returns tracking.',
+          features: { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: true, prioritySupport: false },
+          isPopular: true,
+          status: 'Active',
+        }),
+        await Plan.create({
+          name: 'Enterprise',
+          priceMonthly: 15000,
+          priceAnnual: 150000,
+          maxUsers: 50,
+          maxProducts: 1000,
+          description: 'High-volume market brokers with multi-branch staff & dedicated support.',
+          features: { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: true, prioritySupport: true },
+          isPopular: false,
+          status: 'Active',
+        })
+      ];
+    }
+    res.json(plans);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch subscription plans.' });
+  }
+}
+
+export async function createSubscriptionPlan(req, res) {
+  try {
+    const { name, priceMonthly, priceAnnual, maxUsers, maxProducts, description, features, isPopular } = req.body;
+    if (!name) return res.status(400).json({ error: 'Plan name is required.' });
+
+    const newPlan = await Plan.create({
+      name,
+      priceMonthly: Number(priceMonthly) || 0,
+      priceAnnual: Number(priceAnnual) || 0,
+      maxUsers: Number(maxUsers) || 5,
+      maxProducts: Number(maxProducts) || 50,
+      description: description || '',
+      features: features || { logistics: true, multiLanguage: true, reportsExport: true, returnsModule: true, smsWhatsApp: false, prioritySupport: false },
+      isPopular: Boolean(isPopular),
+      status: 'Active',
+    });
+
+    res.status(201).json(newPlan);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create plan.' });
+  }
+}
+
+export async function updateSubscriptionPlan(req, res) {
+  try {
+    const { id } = req.params;
+    const updated = await Plan.findByIdAndUpdate(id, req.body);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update plan.' });
+  }
+}
+
+export async function deleteSubscriptionPlan(req, res) {
+  try {
+    const { id } = req.params;
+    await Plan.findByIdAndDelete(id);
+    res.json({ message: 'Plan deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete plan.' });
+  }
+}
+
+// 21. Update Tenant Quotas & Feature Toggles
+export async function updateTenantFeatures(req, res) {
+  try {
+    const { id } = req.params;
+    const { features, maxUsers, plan } = req.body;
+
+    const business = await Business.findById(id);
+    if (!business) return res.status(404).json({ error: 'Business not found.' });
+
+    const updated = await Business.findByIdAndUpdate(id, {
+      features: features !== undefined ? features : business.features,
+      maxUsers: maxUsers !== undefined ? Number(maxUsers) : business.maxUsers,
+      plan: plan || business.plan,
+      subscriptionPlan: plan || business.subscriptionPlan,
+    });
+
+    await AuditLog.create({
+      tenantId: 'super_admin_logs',
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'UPDATE_TENANT_QUOTAS',
+      details: `Updated quotas & feature toggles for business '${business.name || business.businessName}'.`,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json({ message: 'Tenant quotas updated successfully.', business: updated });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update tenant quotas.' });
+  }
+}
+
+// 22. Get Super Admin Global Security Audit Logs
+export async function getSuperAdminAuditLogs(req, res) {
+  try {
+    const allLogs = await AuditLog.find();
+    const sorted = allLogs.sort((a, b) => new Date(b.timestamp || b.createdAt || 0) - new Date(a.timestamp || a.createdAt || 0));
+    res.json(sorted.slice(0, 100));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch global audit logs.' });
+  }
+}
+
 

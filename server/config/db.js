@@ -46,6 +46,56 @@ if (useMongoDB) {
               await mongoose.connection.db.collection('expensecategories').dropIndex('name_1').catch(() => {});
             }
           }
+
+          // Handle Users collection indexes (fix E11000 duplicate key error on email: null)
+          if (collectionNames.includes('users')) {
+            const usersColl = mongoose.connection.db.collection('users');
+            try {
+              // 1. Unset null or empty emails on existing user records
+              await usersColl.updateMany(
+                { $or: [{ email: null }, { email: '' }, { email: { $exists: true, $type: 10 } }] },
+                { $unset: { email: "" } }
+              );
+
+              // 2. Drop any legacy non-partial email index
+              const userIndexes = await usersColl.indexes();
+              const legacyEmailIdx = userIndexes.find(i => i.name === 'email_1' || (i.key && i.key.email && !i.partialFilterExpression));
+              if (legacyEmailIdx) {
+                console.log(`[Database Migration] Dropping legacy email index '${legacyEmailIdx.name}' on users...`);
+                await usersColl.dropIndex(legacyEmailIdx.name).catch(() => {});
+              }
+
+              // 3. Create a safe partial unique index that only indexes actual non-empty email strings
+              await usersColl.createIndex(
+                { email: 1 },
+                {
+                  unique: true,
+                  sparse: true,
+                  partialFilterExpression: { email: { $type: 'string', $gt: '' } },
+                  background: true
+                }
+              ).catch(() => {});
+            } catch (userIndexErr) {
+              console.log('[Database Info] Note on users index setup:', userIndexErr.message);
+            }
+          }
+
+          // Also clean up any legacy unique email or khataId indexes on customers and suppliers if present
+          for (const collName of ['customers', 'suppliers', 'employees']) {
+            if (collectionNames.includes(collName)) {
+              try {
+                const coll = mongoose.connection.db.collection(collName);
+                const collIndexes = await coll.indexes();
+                for (const idx of collIndexes) {
+                  if (idx.name === 'email_1' || (idx.key && idx.key.email && !idx.partialFilterExpression)) {
+                    await coll.dropIndex(idx.name).catch(() => {});
+                  }
+                }
+              } catch (cErr) {
+                // Ignore
+              }
+            }
+          }
         }
       } catch (idxErr) {
         // Ignore index check errors
@@ -146,14 +196,20 @@ class ModelWrapper {
 
   async create(doc) {
     await ensureDBConnected();
+    const cleanDoc = { ...doc };
+    // If email is empty, whitespace, or null, remove it so Mongo doesn't index a null value
+    if (cleanDoc.email !== undefined && (!cleanDoc.email || !String(cleanDoc.email).trim())) {
+      delete cleanDoc.email;
+    }
+
     if (useMongoDB && mongoose.connection.readyState === 1) {
-      const result = await this.mongooseModel.create(doc);
+      const result = await this.mongooseModel.create(cleanDoc);
       return result.toObject();
     }
     const data = readJSON(this.filename);
     const newId = Math.random().toString(36).substring(2, 11);
     const newDoc = {
-      ...doc,
+      ...cleanDoc,
       id: newId,
       _id: newId,
       createdAt: new Date().toISOString(),
@@ -166,18 +222,31 @@ class ModelWrapper {
 
   async findByIdAndUpdate(id, update) {
     await ensureDBConnected();
+    const cleanUpdate = { ...update };
+    const mongoOptions = { new: true };
+
+    if (cleanUpdate.email !== undefined && (!cleanUpdate.email || !String(cleanUpdate.email).trim())) {
+      delete cleanUpdate.email;
+      cleanUpdate.$unset = { ...(cleanUpdate.$unset || {}), email: "" };
+    }
+
     if (useMongoDB && mongoose.connection.readyState === 1) {
-      return this.mongooseModel.findByIdAndUpdate(id, update, { new: true }).lean();
+      return this.mongooseModel.findByIdAndUpdate(id, cleanUpdate, mongoOptions).lean();
     }
     const data = readJSON(this.filename);
     const idx = data.findIndex(item => item.id === id || item._id === id);
     if (idx === -1) return null;
 
+    if (cleanUpdate.$unset && cleanUpdate.$unset.email !== undefined) {
+      delete data[idx].email;
+    }
+
     data[idx] = {
       ...data[idx],
-      ...update,
+      ...cleanUpdate,
       updatedAt: new Date().toISOString()
     };
+    if (data[idx].$unset) delete data[idx].$unset;
     writeJSON(this.filename, data);
     return data[idx];
   }
