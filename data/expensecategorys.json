@@ -118,5 +118,65 @@
     "_id": "kc59t3pqh",
     "createdAt": "2026-08-20T04:04:17.742Z",
     "updatedAt": "2026-08-20T04:04:17.742Z"
+  },
+  {
+    "name": "Unloading Charges",
+    "description": "Mandatory arrival gate unloading labor fees",
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "epb9lw980",
+    "_id": "epb9lw980",
+    "createdAt": "2026-08-20T17:21:25.704Z",
+    "updatedAt": "2026-08-20T17:21:25.704Z"
+  },
+  {
+    "name": "Labour & Loading",
+    "description": "Internal mandi labor & crate shifting charges",
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "n2kix68so",
+    "_id": "n2kix68so",
+    "createdAt": "2026-08-20T17:21:25.708Z",
+    "updatedAt": "2026-08-20T17:21:25.708Z"
+  },
+  {
+    "name": "Transport & Freight",
+    "description": "Inbound orchard truck freight charges",
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "1l6jxv7qs",
+    "_id": "1l6jxv7qs",
+    "createdAt": "2026-08-20T17:21:25.714Z",
+    "updatedAt": "2026-08-20T17:21:25.714Z"
+  },
+  {
+    "name": "Packing & Crates",
+    "description": "Crate packaging & strapping expenses",
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "a4uhvyzv6",
+    "_id": "a4uhvyzv6",
+    "createdAt": "2026-08-20T17:21:25.719Z",
+    "updatedAt": "2026-08-20T17:21:25.719Z"
+  },
+  {
+    "name": "Market Cess & Tax",
+    "description": "Government mandi market board fees",
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "v0rpjeacx",
+    "_id": "v0rpjeacx",
+    "createdAt": "2026-08-20T17:21:25.722Z",
+    "updatedAt": "2026-08-20T17:21:25.722Z"
+  },
+  {
+    "name": "Miscellaneous",
+    "description": "Other supplier lot deductions",
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "e2w44k0ev",
+    "_id": "e2w44k0ev",
+    "createdAt": "2026-08-20T17:21:25.726Z",
+    "updatedAt": "2026-08-20T17:21:25.726Z"
   }
 ]

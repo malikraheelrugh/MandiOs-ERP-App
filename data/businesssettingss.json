@@ -28,5 +28,22 @@
     "_id": "fsskdtteu",
     "createdAt": "2026-08-20T04:06:22.745Z",
     "updatedAt": "2026-08-20T04:06:22.745Z"
+  },
+  {
+    "tenantId": "tenant_1787246464394_3eeo",
+    "businessName": "KPS Rachna Town",
+    "ownerName": "Raheel Abbas",
+    "email": "info@kpsrachna.pk",
+    "mobileNumber": "03496305842",
+    "whatsAppNumber": "03496305842",
+    "address": "Shop 12, Fruit Market",
+    "city": "Lahore",
+    "country": "Pakistan",
+    "currency": "PKR",
+    "currencySymbol": "Rs.",
+    "id": "kvlvvszpb",
+    "_id": "kvlvvszpb",
+    "createdAt": "2026-08-20T17:21:04.577Z",
+    "updatedAt": "2026-08-20T17:21:04.577Z"
   }
 ]

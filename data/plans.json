@@ -1,0 +1,71 @@
+[
+  {
+    "name": "Basic",
+    "priceMonthly": 3000,
+    "priceAnnual": 30000,
+    "maxUsers": 3,
+    "maxProducts": 25,
+    "duration": "1 Month",
+    "description": "Essential Mandi Ledger for small single-clerk commission shops.",
+    "features": {
+      "logistics": false,
+      "multiLanguage": true,
+      "reportsExport": true,
+      "returnsModule": false,
+      "smsWhatsApp": false,
+      "prioritySupport": false
+    },
+    "isPopular": false,
+    "status": "Active",
+    "id": "6a1i2lnev",
+    "_id": "6a1i2lnev",
+    "createdAt": "2026-08-20T17:16:55.289Z",
+    "updatedAt": "2026-08-20T17:16:55.289Z"
+  },
+  {
+    "name": "Pro",
+    "priceMonthly": 6000,
+    "priceAnnual": 60000,
+    "maxUsers": 10,
+    "maxProducts": 150,
+    "duration": "1 Year",
+    "description": "Full-featured Mandi ERP with truck arrivals, crates & returns tracking.",
+    "features": {
+      "logistics": true,
+      "multiLanguage": true,
+      "reportsExport": true,
+      "returnsModule": true,
+      "smsWhatsApp": true,
+      "prioritySupport": false
+    },
+    "isPopular": true,
+    "status": "Active",
+    "id": "4390yb01h",
+    "_id": "4390yb01h",
+    "createdAt": "2026-08-20T17:16:55.292Z",
+    "updatedAt": "2026-08-20T17:16:55.292Z"
+  },
+  {
+    "name": "Enterprise",
+    "priceMonthly": 15000,
+    "priceAnnual": 150000,
+    "maxUsers": 50,
+    "maxProducts": 1000,
+    "duration": "1 Year",
+    "description": "High-volume market brokers with multi-branch staff & dedicated support.",
+    "features": {
+      "logistics": true,
+      "multiLanguage": true,
+      "reportsExport": true,
+      "returnsModule": true,
+      "smsWhatsApp": true,
+      "prioritySupport": true
+    },
+    "isPopular": false,
+    "status": "Active",
+    "id": "1g5v3ewiu",
+    "_id": "1g5v3ewiu",
+    "createdAt": "2026-08-20T17:16:55.298Z",
+    "updatedAt": "2026-08-20T17:16:55.298Z"
+  }
+]

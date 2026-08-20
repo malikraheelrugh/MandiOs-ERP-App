@@ -86,5 +86,49 @@
     "_id": "2afpuikm9",
     "createdAt": "2026-08-20T04:04:17.769Z",
     "updatedAt": "2026-08-20T04:04:17.769Z"
+  },
+  {
+    "name": "Cash",
+    "description": "Counter physical cash handout/collection",
+    "detailsRequired": false,
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "5niazj7gv",
+    "_id": "5niazj7gv",
+    "createdAt": "2026-08-20T17:21:25.757Z",
+    "updatedAt": "2026-08-20T17:21:25.757Z"
+  },
+  {
+    "name": "Bank Transfer",
+    "description": "Direct bank account transfer (IBFT/Wire)",
+    "detailsRequired": true,
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "tblpxeafa",
+    "_id": "tblpxeafa",
+    "createdAt": "2026-08-20T17:21:25.760Z",
+    "updatedAt": "2026-08-20T17:21:25.760Z"
+  },
+  {
+    "name": "Cheque",
+    "description": "Bank cheque book clearing",
+    "detailsRequired": true,
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "4q5rhwspn",
+    "_id": "4q5rhwspn",
+    "createdAt": "2026-08-20T17:21:25.772Z",
+    "updatedAt": "2026-08-20T17:21:25.772Z"
+  },
+  {
+    "name": "EasyPaisa / JazzCash",
+    "description": "Mobile wallet transaction",
+    "detailsRequired": true,
+    "status": "Active",
+    "tenantId": "tenant_1787246464394_3eeo",
+    "id": "9vkohva3u",
+    "_id": "9vkohva3u",
+    "createdAt": "2026-08-20T17:21:25.776Z",
+    "updatedAt": "2026-08-20T17:21:25.776Z"
   }
 ]

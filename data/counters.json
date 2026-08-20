@@ -16,5 +16,23 @@
     "createdAt": "2026-08-20T10:55:56.254Z",
     "updatedAt": "2026-08-20T10:55:56.254Z",
     "seq": 1
+  },
+  {
+    "tenantId": "tenant_1787246464394_3eeo",
+    "role": "Supplier",
+    "id": "hiwvufnet",
+    "_id": "hiwvufnet",
+    "createdAt": "2026-08-20T17:24:17.166Z",
+    "updatedAt": "2026-08-20T17:24:17.166Z",
+    "seq": 1
+  },
+  {
+    "tenantId": "tenant_1787246464394_3eeo",
+    "role": "Customer",
+    "id": "mng1yxigw",
+    "_id": "mng1yxigw",
+    "createdAt": "2026-08-20T17:26:24.778Z",
+    "updatedAt": "2026-08-20T17:31:37.362Z",
+    "seq": 3
   }
 ]

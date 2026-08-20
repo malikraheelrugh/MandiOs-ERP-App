@@ -29,5 +29,22 @@
     "_id": "goamqqov3",
     "createdAt": "2026-08-20T10:55:56.432Z",
     "updatedAt": "2026-08-20T11:10:34.343Z"
+  },
+  {
+    "tenantId": "tenant_1787246464394_3eeo",
+    "userId": "990xw1p6r",
+    "khataId": "KRT-S-1",
+    "name": "Kamran",
+    "phone": "03496305842",
+    "address": "Rachna Town",
+    "cnic": "34401-0000000-0",
+    "currentBalance": 0,
+    "totalSupplied": 0,
+    "totalPaid": 0,
+    "remainingBalance": 0,
+    "id": "eu85rdobg",
+    "_id": "eu85rdobg",
+    "createdAt": "2026-08-20T17:24:17.332Z",
+    "updatedAt": "2026-08-20T17:24:17.332Z"
   }
 ]
