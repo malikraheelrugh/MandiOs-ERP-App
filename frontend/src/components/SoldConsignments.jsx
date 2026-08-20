@@ -849,10 +849,19 @@ export default function SoldConsignments({ user, setCurrentTab }) {
   const lotQtySold = Math.max(0, rawLotQtySold - lotReturnedQty);
 
   const rawLotBuyerComm = lotSalesList.reduce((acc, curr) => acc + (Number(curr.commissionAmount) || Number(curr.commission) || 0), 0);
-  const lotReturnedBuyerComm = lotReturnsList.reduce((acc, curr) => {
-    const rate = Number(curr.commissionRate) || 0;
-    const rGross = Number(curr.grossReturnAmount) || (Number(curr.produceReturnedQty || 0) * Number(curr.saleRate || 0));
-    return acc + (rGross * (rate / 100));
+  const lotReturnedBuyerComm = lotReturnsList.reduce((acc, r) => {
+    let rev = Number(r.commissionReversedAmount) || 0;
+    if (!rev && Number(r.produceReturnedQty) > 0) {
+      const matchingSale = lotSalesList.find(s => String(s.id || s._id) === String(r.saleId));
+      if (matchingSale && matchingSale.quantity > 0 && matchingSale.commissionAmount > 0) {
+        rev = Number(r.produceReturnedQty) * (Number(matchingSale.commissionAmount) / Number(matchingSale.quantity));
+      } else {
+        const commRate = parseFloat(String(r.commissionRate || 0).replace(/[^\d.]/g, '')) || 0;
+        const retGross = Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0));
+        rev = retGross * (commRate / 100);
+      }
+    }
+    return acc + (rev || 0);
   }, 0);
   const lotBuyerComm = Math.max(0, Math.round((rawLotBuyerComm - lotReturnedBuyerComm) * 100) / 100);
 

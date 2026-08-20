@@ -393,15 +393,27 @@ export async function approveReturn(req, res) {
       if (returnRecord.stockEntryId) {
         const stockEntry = await StockEntry.findById(returnRecord.stockEntryId);
         if (stockEntry) {
+          const supplierGrossValue = Math.round((returnRecord.grossReturnAmount || (qty * (returnRecord.saleRate || 0))) * 100) / 100;
+
           // Increase remaining consignment quantity back in that lot so it can be resold
-          const newRemaining = (stockEntry.remainingQuantity !== undefined ? stockEntry.remainingQuantity : stockEntry.quantity) + qty;
+          const initialQty = Number(stockEntry.quantity) || 0;
+          const currentRem = stockEntry.remainingQuantity !== undefined ? stockEntry.remainingQuantity : initialQty;
+          const newRemaining = Math.min(initialQty, currentRem + qty);
+
+          // Update totalAmount on stockEntry (deduct returned produce gross value)
+          const newTotalAmount = Math.max(0, Math.round(((stockEntry.totalAmount || 0) - supplierGrossValue) * 100) / 100);
           
+          // Recalculate average purchase rate realized
+          const netSoldQty = Math.max(0, initialQty - newRemaining);
+          const newPurchaseRate = netSoldQty > 0 ? Math.round((newTotalAmount / netSoldQty) * 100) / 100 : (stockEntry.purchaseRate || 0);
+
           await StockEntry.findByIdAndUpdate(stockEntry.id || stockEntry._id, {
-            remainingQuantity: newRemaining
+            remainingQuantity: newRemaining,
+            totalAmount: newTotalAmount,
+            purchaseRate: newPurchaseRate
           });
 
           // Update Supplier Ledger & Balance (Return value decreased from Supplier)
-          const supplierGrossValue = Math.round((returnRecord.grossReturnAmount || (qty * (returnRecord.saleRate || 0))) * 100) / 100;
           if (supplierGrossValue > 0 && stockEntry.supplierId) {
             const supplier = await Supplier.findById(stockEntry.supplierId);
             if (supplier) {

@@ -313,12 +313,13 @@ export async function editSupplier(req, res) {
       const userUpdate = { name, phone, address, khataId: updatedKhataId };
       if (email !== undefined) {
         if (email && email.trim()) {
-          const duplicate = await User.findOne({ email: email.trim() });
+          const duplicate = await User.findOne({ email: email.trim().toLowerCase() });
           if (!duplicate || duplicate.id === supplier.userId || duplicate._id?.toString() === supplier.userId) {
-            userUpdate.email = email.trim();
+            userUpdate.email = email.trim().toLowerCase();
           }
         } else {
-          userUpdate.email = '';
+          userUpdate.email = undefined;
+          userUpdate.$unset = { email: "" };
         }
       }
       if (password && password.trim()) {
@@ -565,12 +566,13 @@ export async function editCustomer(req, res) {
       const userUpdate = { name, phone, address, khataId: updatedKhataId };
       if (email !== undefined) {
         if (email && email.trim()) {
-          const duplicate = await User.findOne({ email: email.trim() });
+          const duplicate = await User.findOne({ email: email.trim().toLowerCase() });
           if (!duplicate || duplicate.id === customer.userId || duplicate._id?.toString() === customer.userId) {
-            userUpdate.email = email.trim();
+            userUpdate.email = email.trim().toLowerCase();
           }
         } else {
-          userUpdate.email = '';
+          userUpdate.email = undefined;
+          userUpdate.$unset = { email: "" };
         }
       }
       if (password && password.trim()) {

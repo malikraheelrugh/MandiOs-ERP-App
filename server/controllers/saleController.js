@@ -183,8 +183,34 @@ export async function addSale(req, res) {
       purchaseRate: updatedPurchaseRate,
     });
 
-    // Note: Supplier Accounts and Supplier Ledger are NOT updated automatically when a sale occurs.
-    // They are posted to Outstanding Payables & Supplier Supply Value only when "Record to Payables & Supply Value" is explicitly clicked on the consignment lot.
+    // --- POST TO SUPPLIER ACCOUNTS & GENERAL STATEMENT LEDGER ---
+    const newSupplierBalance = (supplier.currentBalance || 0) - totalBatchAmount;
+    const newTotalSupplied = (supplier.totalSupplied || 0) + totalBatchAmount;
+
+    await Supplier.findByIdAndUpdate(supplier.id || supplier._id, {
+      currentBalance: newSupplierBalance,
+      remainingBalance: newSupplierBalance,
+      totalSupplied: newTotalSupplied,
+    });
+
+    // Construct detailed Transaction Entry / Reference Description for General Statement Ledger
+    const buyerSummaryList = createdSales.map(s => {
+      const bName = s.isWalkIn ? (s.walkInName || 'Walk-In Customer') : s.customerName;
+      return `${bName} (${s.quantity} ${product.unit} @ Rs. ${rate})`;
+    });
+    const buyerSummaryStr = buyerSummaryList.join(', ');
+    const lotRef = stockEntry.lotNumber ? `Lot #${stockEntry.lotNumber}` : `Arrival Ref: ${String(stockEntry.id || stockEntry._id).substring(0, 8).toUpperCase()}`;
+
+    await Ledger.create({
+      tenantId,
+      partyId: supplier.id || supplier._id,
+      partyType: 'Supplier',
+      date,
+      type: 'Credit',
+      amount: totalBatchAmount,
+      balanceAfter: newSupplierBalance,
+      description: `BATCH SALE: Sold ${totalQtyRequested} ${product.unit} of ${product.name} @ Rs. ${rate} (Gross: Rs. ${totalBatchAmount.toLocaleString()}) to ${buyers.length} buyer(s): [${buyerSummaryStr}]. ${lotRef} (Arrival Date: ${stockEntry.date})`,
+    });
 
     // Audit Log
     await AuditLog.create({
@@ -275,6 +301,31 @@ export async function deleteSale(req, res) {
           totalAmount: newTotalAmount,
           purchaseRate: newPurchaseRate,
         });
+
+        // Revert Supplier Balance & post Debit reversal in Supplier General Statement Ledger
+        if (stockEntry.supplierId) {
+          const supplier = await Supplier.findById(stockEntry.supplierId);
+          if (supplier) {
+            const revertedSuppBalance = (supplier.currentBalance || 0) + revertAmt;
+            const revertedTotalSupplied = Math.max(0, (supplier.totalSupplied || 0) - revertAmt);
+            await Supplier.findByIdAndUpdate(stockEntry.supplierId, {
+              currentBalance: revertedSuppBalance,
+              remainingBalance: revertedSuppBalance,
+              totalSupplied: revertedTotalSupplied,
+            });
+
+            await Ledger.create({
+              tenantId,
+              partyId: stockEntry.supplierId,
+              partyType: 'Supplier',
+              date: new Date().toISOString().split('T')[0],
+              type: 'Debit',
+              amount: revertAmt,
+              balanceAfter: revertedSuppBalance,
+              description: `DELETED SALE REVERSAL: Cancelled batch sale of ${quantity} ${productName || 'units'} @ Rs. ${saleRate} (Buyer: ${customerName || 'Customer'})`,
+            });
+          }
+        }
       }
     }
 
