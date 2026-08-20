@@ -1621,7 +1621,7 @@ export default function SoldConsignments({ user, setCurrentTab }) {
                           <th className="py-2.5 px-3 text-right">Returned Qty</th>
                           <th className="py-2.5 px-3 text-right">Sale Rate</th>
                           <th className="py-2.5 px-3 text-right text-rose-600">Gross Return Minus</th>
-                          <th className="py-2.5 px-3">Condition</th>
+                          <th className="py-2.5 px-3">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-rose-100 dark:divide-rose-900/30">
@@ -1637,7 +1637,7 @@ export default function SoldConsignments({ user, setCurrentTab }) {
                             </td>
                             <td className="py-2.5 px-3">
                               <span className="text-[9px] px-2 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-600">
-                                {ret.produceCondition || 'Good'} (Restocked)
+                                Produce Restocked
                               </span>
                             </td>
                           </tr>
