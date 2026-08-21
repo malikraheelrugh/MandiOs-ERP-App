@@ -1,7 +1,225 @@
 import bcryptjs from 'bcryptjs';
-import { User, Customer, Supplier, Employee, AuditLog, Ledger, Payment, StockEntry, Sale } from '../models/index.js';
+import { User, Customer, Supplier, Employee, AuditLog, Ledger, Payment, StockEntry, Sale, Truck, ReturnRecord } from '../models/index.js';
+import { CommissionRule } from '../models/settings.js';
 import { buildTenantQuery, getTenantId } from '../utils/tenant.js';
 import { peekNextKhataId, getNextKhataId, isKhataIdUnique, syncCounterIfNeeded } from '../utils/counter.js';
+
+// --- DATA INTEGRITY LINKED DATA HELPERS ---
+
+/**
+ * Checks whether a Supplier has any linked data anywhere in the application
+ * (Stock lots, sales realizations, payments, khata ledgers, truck logistics, returns, commission rules, or non-zero balances).
+ */
+export async function getSupplierLinkedData(supplierId, req) {
+  const sIdStr = String(supplierId);
+  const tenantQuery = buildTenantQuery(req);
+
+  const [
+    allStock,
+    allSales,
+    allPayments,
+    allLedgers,
+    allTrucks,
+    allReturns,
+    allRules,
+    supplier
+  ] = await Promise.all([
+    StockEntry.find(tenantQuery),
+    Sale.find(tenantQuery),
+    Payment.find(tenantQuery),
+    Ledger.find(tenantQuery),
+    Truck.find(tenantQuery),
+    ReturnRecord.find(tenantQuery),
+    CommissionRule.find(tenantQuery),
+    Supplier.findById(supplierId)
+  ]);
+
+  const supplierIds = new Set([sIdStr]);
+  if (supplier) {
+    if (supplier.id) supplierIds.add(String(supplier.id));
+    if (supplier._id) supplierIds.add(String(supplier._id));
+    if (supplier.khataId) supplierIds.add(String(supplier.khataId));
+  }
+
+  // 1. Stock / Lot arrivals
+  const linkedStock = allStock.filter(st => 
+    supplierIds.has(String(st.supplierId)) || 
+    (supplier && st.supplierName && st.supplierName.trim().toLowerCase() === supplier.name.trim().toLowerCase())
+  );
+  const stockIds = new Set(linkedStock.map(st => String(st.id || st._id)));
+
+  // 2. Sales linked to this supplier's stock lots
+  const linkedSales = allSales.filter(s => s.stockEntryId && stockIds.has(String(s.stockEntryId)));
+
+  // 3. Payments
+  const linkedPayments = allPayments.filter(p => 
+    (supplierIds.has(String(p.partyId)) || (supplier && p.partyName && p.partyName.trim().toLowerCase() === supplier.name.trim().toLowerCase())) && 
+    p.partyType === 'Supplier'
+  );
+
+  // 4. Ledger entries
+  const linkedLedgers = allLedgers.filter(l => 
+    supplierIds.has(String(l.partyId)) && 
+    l.partyType === 'Supplier'
+  );
+
+  // 5. Trucks / Transport Logistics
+  const linkedTrucks = allTrucks.filter(t => 
+    supplierIds.has(String(t.supplierId)) || 
+    (supplier && t.supplierName && t.supplierName.trim().toLowerCase() === supplier.name.trim().toLowerCase())
+  );
+
+  // 6. Produce / Crate Returns
+  const linkedReturns = allReturns.filter(r => 
+    supplierIds.has(String(r.supplierId)) || 
+    (supplier && r.supplierName && r.supplierName.trim().toLowerCase() === supplier.name.trim().toLowerCase()) ||
+    (r.stockEntryId && stockIds.has(String(r.stockEntryId)))
+  );
+
+  // 7. Commission Rules
+  const linkedRules = allRules.filter(r => 
+    supplierIds.has(String(r.supplierId)) ||
+    (supplier && r.supplierName && r.supplierName.trim().toLowerCase() === supplier.name.trim().toLowerCase())
+  );
+
+  // 8. Financial Activity / Balances
+  const hasBalance = supplier && Math.abs(Number(supplier.currentBalance) || 0) > 0.01;
+  const hasRemainingBal = supplier && Math.abs(Number(supplier.remainingBalance) || 0) > 0.01;
+  const hasSuppliedVolume = supplier && (Number(supplier.totalSupplied) || 0) > 0;
+  const hasPaidVolume = supplier && (Number(supplier.totalPaid) || 0) > 0;
+
+  const reasons = [];
+  if (linkedStock.length > 0) reasons.push(`${linkedStock.length} stock lot arrival(s)`);
+  if (linkedSales.length > 0) reasons.push(`${linkedSales.length} linked lot sales`);
+  if (linkedPayments.length > 0) reasons.push(`${linkedPayments.length} payment voucher(s)`);
+  if (linkedLedgers.length > 0) reasons.push(`${linkedLedgers.length} khata ledger transaction(s)`);
+  if (linkedTrucks.length > 0) reasons.push(`${linkedTrucks.length} truck transport log(s)`);
+  if (linkedReturns.length > 0) reasons.push(`${linkedReturns.length} return record(s)`);
+  if (linkedRules.length > 0) reasons.push(`${linkedRules.length} commission rule(s)`);
+  if (hasBalance) {
+    const balVal = Number(supplier.currentBalance);
+    reasons.push(`outstanding balance (Rs. ${Math.abs(balVal).toLocaleString()} ${balVal < 0 ? 'Payable' : 'Receivable'})`);
+  } else if (hasRemainingBal) {
+    reasons.push(`remaining khata balance of Rs. ${Math.abs(Number(supplier.remainingBalance)).toLocaleString()}`);
+  } else if (hasSuppliedVolume || hasPaidVolume) {
+    reasons.push(`historical trade activity (Rs. ${(Number(supplier?.totalSupplied) || 0).toLocaleString()} supplied)`);
+  }
+
+  const hasLinkedData = reasons.length > 0;
+
+  return {
+    hasLinkedData,
+    reasons,
+    counts: {
+      stockCount: linkedStock.length,
+      salesCount: linkedSales.length,
+      paymentCount: linkedPayments.length,
+      ledgerCount: linkedLedgers.length,
+      truckCount: linkedTrucks.length,
+      returnCount: linkedReturns.length,
+      ruleCount: linkedRules.length,
+      hasFinancialActivity: hasBalance || hasRemainingBal || hasSuppliedVolume || hasPaidVolume
+    }
+  };
+}
+
+/**
+ * Checks whether a Customer has any linked data anywhere in the application
+ * (Sales invoices, payments, khata ledgers, produce/crate returns, commission rules, or non-zero balances).
+ */
+export async function getCustomerLinkedData(customerId, req) {
+  const cIdStr = String(customerId);
+  const tenantQuery = buildTenantQuery(req);
+
+  const [
+    allSales,
+    allPayments,
+    allLedgers,
+    allReturns,
+    allRules,
+    customer
+  ] = await Promise.all([
+    Sale.find(tenantQuery),
+    Payment.find(tenantQuery),
+    Ledger.find(tenantQuery),
+    ReturnRecord.find(tenantQuery),
+    CommissionRule.find(tenantQuery),
+    Customer.findById(customerId)
+  ]);
+
+  const customerIds = new Set([cIdStr]);
+  if (customer) {
+    if (customer.id) customerIds.add(String(customer.id));
+    if (customer._id) customerIds.add(String(customer._id));
+    if (customer.khataId) customerIds.add(String(customer.khataId));
+  }
+
+  // 1. Sales / Invoices
+  const linkedSales = allSales.filter(s => 
+    customerIds.has(String(s.customerId)) || 
+    (customer && s.customerName && s.customerName.trim().toLowerCase() === customer.name.trim().toLowerCase())
+  );
+
+  // 2. Payments
+  const linkedPayments = allPayments.filter(p => 
+    (customerIds.has(String(p.partyId)) || (customer && p.partyName && p.partyName.trim().toLowerCase() === customer.name.trim().toLowerCase())) && 
+    p.partyType === 'Customer'
+  );
+
+  // 3. Ledger entries
+  const linkedLedgers = allLedgers.filter(l => 
+    customerIds.has(String(l.partyId)) && 
+    l.partyType === 'Customer'
+  );
+
+  // 4. Produce / Crate Returns
+  const linkedReturns = allReturns.filter(r => 
+    customerIds.has(String(r.customerId)) || 
+    (customer && r.customerName && r.customerName.trim().toLowerCase() === customer.name.trim().toLowerCase())
+  );
+
+  // 5. Commission Rules
+  const linkedRules = allRules.filter(r => 
+    customerIds.has(String(r.customerId)) ||
+    (customer && r.customerName && r.customerName.trim().toLowerCase() === customer.name.trim().toLowerCase())
+  );
+
+  // 6. Financial Activity / Balances
+  const hasBalance = customer && Math.abs(Number(customer.currentBalance) || 0) > 0.01;
+  const hasRemainingBal = customer && Math.abs(Number(customer.remainingBalance) || 0) > 0.01;
+  const hasPurchasedVolume = customer && (Number(customer.totalPurchases) || 0) > 0;
+  const hasPaidVolume = customer && (Number(customer.totalPaid) || 0) > 0;
+
+  const reasons = [];
+  if (linkedSales.length > 0) reasons.push(`${linkedSales.length} sale invoice(s)`);
+  if (linkedPayments.length > 0) reasons.push(`${linkedPayments.length} payment voucher(s)`);
+  if (linkedLedgers.length > 0) reasons.push(`${linkedLedgers.length} khata ledger transaction(s)`);
+  if (linkedReturns.length > 0) reasons.push(`${linkedReturns.length} produce/crate return(s)`);
+  if (linkedRules.length > 0) reasons.push(`${linkedRules.length} commission rule(s)`);
+  if (hasBalance) {
+    const balVal = Number(customer.currentBalance);
+    reasons.push(`outstanding balance (Rs. ${Math.abs(balVal).toLocaleString()} ${balVal > 0 ? 'Receivable' : 'Credit'})`);
+  } else if (hasRemainingBal) {
+    reasons.push(`remaining khata balance of Rs. ${Math.abs(Number(customer.remainingBalance)).toLocaleString()}`);
+  } else if (hasPurchasedVolume || hasPaidVolume) {
+    reasons.push(`historical purchase activity (Rs. ${(Number(customer?.totalPurchases) || 0).toLocaleString()} purchased)`);
+  }
+
+  const hasLinkedData = reasons.length > 0;
+
+  return {
+    hasLinkedData,
+    reasons,
+    counts: {
+      salesCount: linkedSales.length,
+      paymentCount: linkedPayments.length,
+      ledgerCount: linkedLedgers.length,
+      returnCount: linkedReturns.length,
+      ruleCount: linkedRules.length,
+      hasFinancialActivity: hasBalance || hasRemainingBal || hasPurchasedVolume || hasPaidVolume
+    }
+  };
+}
 
 // --- CLERKS ---
 export async function getClerks(req, res) {
@@ -358,6 +576,16 @@ export async function deleteSupplier(req, res) {
       return res.status(404).json({ error: 'Supplier not found.' });
     }
 
+    // Check if supplier has any linked data across the system
+    const linkedCheck = await getSupplierLinkedData(id, req);
+    if (linkedCheck.hasLinkedData) {
+      return res.status(400).json({ 
+        error: `Cannot delete supplier "${supplier.name}". This supplier has active or historical data linked in the system (${linkedCheck.reasons.join(', ')}). Deletion is blocked to ensure accounting and transactional data integrity.`,
+        linkedReasons: linkedCheck.reasons,
+        counts: linkedCheck.counts
+      });
+    }
+
     const tenantId = getTenantId(req) || supplier.tenantId || 'tenant_default_001';
     const now = new Date();
     const deletedBy = req.user ? (req.user.name || req.user.email) : 'Admin';
@@ -392,7 +620,7 @@ export async function deleteSupplier(req, res) {
       console.error('Audit log failed during delete supplier:', auditErr);
     }
 
-    res.json({ message: 'Supplier soft-deleted successfully.' });
+    res.json({ message: 'Supplier deleted successfully.' });
   } catch (err) {
     console.error('Error deleting supplier:', err);
     res.status(500).json({ error: err.message || 'Failed to delete supplier.' });
@@ -611,6 +839,16 @@ export async function deleteCustomer(req, res) {
       return res.status(404).json({ error: 'Customer not found.' });
     }
 
+    // Check if customer has any linked data across the system
+    const linkedCheck = await getCustomerLinkedData(id, req);
+    if (linkedCheck.hasLinkedData) {
+      return res.status(400).json({ 
+        error: `Cannot delete customer "${customer.name}". This customer has active or historical data linked in the system (${linkedCheck.reasons.join(', ')}). Deletion is blocked to ensure accounting and transactional data integrity.`,
+        linkedReasons: linkedCheck.reasons,
+        counts: linkedCheck.counts
+      });
+    }
+
     const tenantId = getTenantId(req) || customer.tenantId || 'tenant_default_001';
     const now = new Date();
     const deletedBy = req.user ? (req.user.name || req.user.email) : 'Admin';
@@ -643,7 +881,7 @@ export async function deleteCustomer(req, res) {
       console.error('Audit log failed during delete customer:', auditErr);
     }
 
-    res.json({ message: 'Customer soft-deleted successfully.' });
+    res.json({ message: 'Customer deleted successfully.' });
   } catch (err) {
     console.error('Error deleting customer:', err);
     res.status(500).json({ error: err.message || 'Failed to delete customer.' });
@@ -886,6 +1124,37 @@ export async function deleteUser(req, res) {
     if (user) {
       found = true;
       deletedName = user.name || user.email;
+
+      // If user is a Supplier, check linked data
+      if (user.role === 'Supplier') {
+        const linkedSup = await Supplier.findOne({ userId: id }) || await Supplier.findOne({ phone: user.phone });
+        if (linkedSup) {
+          const supCheck = await getSupplierLinkedData(linkedSup.id || linkedSup._id, req);
+          if (supCheck.hasLinkedData) {
+            return res.status(400).json({
+              error: `Cannot delete supplier user "${user.name}". This supplier has active or historical data linked in the application (${supCheck.reasons.join(', ')}). Deletion is blocked to preserve data integrity.`,
+              linkedReasons: supCheck.reasons,
+              counts: supCheck.counts
+            });
+          }
+        }
+      }
+
+      // If user is a Customer, check linked data
+      if (user.role === 'Customer') {
+        const linkedCust = await Customer.findOne({ userId: id }) || await Customer.findOne({ phone: user.phone });
+        if (linkedCust) {
+          const custCheck = await getCustomerLinkedData(linkedCust.id || linkedCust._id, req);
+          if (custCheck.hasLinkedData) {
+            return res.status(400).json({
+              error: `Cannot delete customer user "${user.name}". This customer has active or historical data linked in the application (${custCheck.reasons.join(', ')}). Deletion is blocked to preserve data integrity.`,
+              linkedReasons: custCheck.reasons,
+              counts: custCheck.counts
+            });
+          }
+        }
+      }
+
       await User.findByIdAndUpdate(id, { isDeleted: true, deletedAt: now, deletedBy });
 
       const linkedSupplier = await Supplier.findOne({ userId: id });
@@ -904,6 +1173,16 @@ export async function deleteUser(req, res) {
       if (supplier) {
         found = true;
         deletedName = supplier.name;
+
+        const supCheck = await getSupplierLinkedData(id, req);
+        if (supCheck.hasLinkedData) {
+          return res.status(400).json({
+            error: `Cannot delete supplier "${supplier.name}". This supplier has active or historical data linked in the application (${supCheck.reasons.join(', ')}). Deletion is blocked to preserve data integrity.`,
+            linkedReasons: supCheck.reasons,
+            counts: supCheck.counts
+          });
+        }
+
         await Supplier.findByIdAndUpdate(id, { isDeleted: true, deletedAt: now, deletedBy });
         if (supplier.userId) {
           await User.findByIdAndUpdate(supplier.userId, { isDeleted: true, deletedAt: now, deletedBy });
@@ -917,6 +1196,16 @@ export async function deleteUser(req, res) {
       if (customer) {
         found = true;
         deletedName = customer.name;
+
+        const custCheck = await getCustomerLinkedData(id, req);
+        if (custCheck.hasLinkedData) {
+          return res.status(400).json({
+            error: `Cannot delete customer "${customer.name}". This customer has active or historical data linked in the application (${custCheck.reasons.join(', ')}). Deletion is blocked to preserve data integrity.`,
+            linkedReasons: custCheck.reasons,
+            counts: custCheck.counts
+          });
+        }
+
         await Customer.findByIdAndUpdate(id, { isDeleted: true, deletedAt: now, deletedBy });
         if (customer.userId) {
           await User.findByIdAndUpdate(customer.userId, { isDeleted: true, deletedAt: now, deletedBy });

@@ -149,7 +149,7 @@ export default function Layout({ children, currentTab: propCurrentTab, setCurren
             const Icon = item.icon;
             const isActive = currentTab === item.id;
 
-            if (item.id === 'settings') {
+            if (item.id === 'settings' && user.role !== 'super_admin') {
               const isAnySettingActive = currentTab.startsWith('settings');
               return (
                 <div key={item.id} className="space-y-1">

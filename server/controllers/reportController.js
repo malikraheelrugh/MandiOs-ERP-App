@@ -294,16 +294,7 @@ export async function getReports(req, res) {
     for (const sale of filteredSales) {
       let commission = sale.commissionAmount;
       if (commission === undefined || commission === null) {
-        const prod = productsMap.get(sale.productId);
-        commission = await calculateCommission({
-          productId: sale.productId,
-          supplierId: prod ? prod.supplierId : null,
-          customerId: sale.customerId,
-          quantity: sale.quantity,
-          unit: prod ? prod.unit : 'Crate',
-          weight: prod ? prod.averageWeight : 0,
-          saleRate: sale.saleRate
-        });
+        commission = 0;
       }
 
       // Deduct reversed commission on returned items for this sale
@@ -722,16 +713,7 @@ export async function getReports(req, res) {
       const key = sale.date;
       let customerComm = sale.commissionAmount;
       if (customerComm === undefined || customerComm === null) {
-        const prod = productsMap.get(sale.productId);
-        customerComm = await calculateCommission({
-          productId: sale.productId,
-          supplierId: prod ? prod.supplierId : null,
-          customerId: sale.customerId,
-          quantity: sale.quantity,
-          unit: prod ? prod.unit : 'Crate',
-          weight: prod ? prod.averageWeight : 0,
-          saleRate: sale.saleRate
-        });
+        customerComm = 0;
       }
 
       // Calculate supplier commission for this sale
@@ -1518,9 +1500,9 @@ export async function getReportData(req, res) {
             const netQty = Math.max(0, rawQty - retQty);
             const rawGrossVal = s.grossSale || (rawQty * (Number(s.saleRate) || 0)) || (s.totalAmount || 0);
             const netGrossVal = Math.max(0, rawGrossVal - retGross);
-            const rawComm = s.commissionAmount !== undefined && s.commissionAmount !== null
+            const rawComm = (s.commissionAmount !== undefined && s.commissionAmount !== null)
               ? Number(s.commissionAmount)
-              : Math.round((rawGrossVal * 0.05) * 100) / 100;
+              : 0;
             const comm = Math.max(0, Math.round((rawComm - reversedComm) * 100) / 100);
 
             totalCustomerComm += comm;
@@ -1546,35 +1528,15 @@ export async function getReportData(req, res) {
               } else if (s.commissionType === 'Percentage') {
                 const val = s.commissionRateValue !== undefined && s.commissionRateValue !== null
                   ? s.commissionRateValue
-                  : (netGrossVal > 0 ? Math.round((comm / netGrossVal) * 1000) / 10 : 5);
+                  : (netGrossVal > 0 ? Math.round((comm / netGrossVal) * 1000) / 10 : 0);
                 formattedRate = `${val}%`;
+              } else if (comm === 0) {
+                formattedRate = '0%';
+              } else if (netGrossVal > 0 && comm > 0) {
+                const pctRatio = Math.round(((comm / netGrossVal) * 100) * 10) / 10;
+                formattedRate = `${pctRatio}%`;
               } else {
-                const rules = allCommissionRules || [];
-                const custRule = rules.find(r => r.status === 'Active' && r.scope === 'Customer Specific' && (r.customerId === s.customerId || r.customerId === String(s.customerId)));
-                const prodRule = rules.find(r => r.status === 'Active' && r.scope === 'Product Specific' && (r.productId === s.productId || r.productId === String(s.productId)));
-                const globRule = rules.find(r => r.status === 'Active' && r.scope === 'Global Default');
-                const rule = custRule || prodRule || globRule;
-
-                if (rule) {
-                  if (rule.commissionType === 'Percentage') {
-                    formattedRate = `${rule.value}%`;
-                  } else {
-                    const basis = rule.chargeBasis ? rule.chargeBasis.replace(/^Per\s+/, '') : unitName;
-                    formattedRate = `Rs. ${rule.value} / ${basis}`;
-                  }
-                } else if (netQty > 0 && comm > 0) {
-                  const unitRatio = Math.round((comm / netQty) * 100) / 100;
-                  const pctRatio = netGrossVal > 0 ? Math.round(((comm / netGrossVal) * 100) * 10) / 10 : 0;
-                  if (Number.isInteger(unitRatio) || (unitRatio * 2) % 1 === 0) {
-                    formattedRate = `Rs. ${unitRatio} / ${unitName}`;
-                  } else {
-                    formattedRate = `${pctRatio}%`;
-                  }
-                } else if (comm === 0) {
-                  formattedRate = '0%';
-                } else {
-                  formattedRate = `${netGrossVal > 0 ? Math.round((comm / netGrossVal) * 100) : 5}%`;
-                }
+                formattedRate = '0%';
               }
             }
 
@@ -1623,23 +1585,24 @@ export async function getReportData(req, res) {
             const commType = st.supplierCommissionType || 'Percentage';
 
             let comm = 0;
-            let formattedRate = '';
+            let formattedRate = '0%';
 
-            if (commType === 'Percentage') {
-              const effectivePct = commVal > 0 ? commVal : 5;
-              comm = lotTradeVal * (effectivePct / 100);
-              formattedRate = `${effectivePct}%`;
-            } else if (commType === 'Per Unit') {
-              const prod = productsMap.get(st.productId);
-              const unitName = prod?.unit || 'Crate';
-              comm = lotQty * commVal;
-              formattedRate = `Rs. ${commVal} / ${unitName}`;
-            } else if (commType === 'Fixed Amount') {
-              comm = commVal;
-              formattedRate = `Rs. ${commVal} (Fixed)`;
+            if (commVal > 0) {
+              if (commType === 'Percentage') {
+                comm = lotTradeVal * (commVal / 100);
+                formattedRate = `${commVal}%`;
+              } else if (commType === 'Per Unit') {
+                const prod = productsMap.get(st.productId);
+                const unitName = prod?.unit || 'Crate';
+                comm = lotQty * commVal;
+                formattedRate = `Rs. ${commVal} / ${unitName}`;
+              } else if (commType === 'Fixed Amount') {
+                comm = commVal;
+                formattedRate = `Rs. ${commVal} (Fixed)`;
+              }
             } else {
-              comm = lotTradeVal * 0.05;
-              formattedRate = '5%';
+              comm = 0;
+              formattedRate = '0%';
             }
 
             comm = Math.round(comm * 100) / 100;
@@ -1704,23 +1667,54 @@ export async function getReportData(req, res) {
         let t0_7 = 0, t8_15 = 0, t16_30 = 0, t30Plus = 0;
 
         reportRows = allCustomers.map(cust => {
-          const custSales = allSales.filter(s => s.customerId === (cust.id || cust._id));
-          const custPayments = allPayments.filter(p => p.partyId === (cust.id || cust._id) && p.type === 'Received');
+          const cId = cust.id || cust._id;
+          const custSales = allSales.filter(s => s.customerId === cId && (!s.date || s.date <= targetAsOfDate));
+          const custPayments = allPayments.filter(p => p.partyId === cId && p.type === 'Received' && (!p.date || p.date <= targetAsOfDate));
 
-          const totPur = custSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-          const totPd = custPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-          const currentBal = Math.max(0, totPur - totPd);
+          // Calculate each sale's net total after returns
+          const salesWithNet = custSales.map(s => {
+            const sId = String(s.id || s._id);
+            const sReturns = (returnsBySaleId.get(sId) || []).filter(r => !r.date || r.date <= targetAsOfDate);
+            const retDeduction = sReturns.reduce((sum, r) => {
+              const g = Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0));
+              const c = Number(r.commissionReversedAmount) || 0;
+              return sum + (Number(r.returnAmount) || (g + c));
+            }, 0);
+            const rawAmount = Number(s.totalAmount) || (Number(s.quantity || 0) * Number(s.saleRate || 0)) || 0;
+            const netAmount = Math.max(0, rawAmount - retDeduction);
+            return {
+              ...s,
+              date: s.date,
+              netAmount
+            };
+          });
+
+          const totNetPur = salesWithNet.reduce((sum, s) => sum + s.netAmount, 0);
+          const totPd = custPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+          const currentBal = Math.max(0, Math.round((totNetPur - totPd) * 100) / 100);
 
           let b0_7 = 0, b8_15 = 0, b16_30 = 0, b30P = 0;
 
           if (currentBal > 0) {
-            custSales.forEach(s => {
-              const diffDays = Math.floor((today - new Date(s.date)) / (1000 * 60 * 60 * 24));
-              if (diffDays <= 7) b0_7 += s.totalAmount;
-              else if (diffDays <= 15) b8_15 += s.totalAmount;
-              else if (diffDays <= 30) b16_30 += s.totalAmount;
-              else b30P += s.totalAmount;
-            });
+            // Sort sales newest to oldest to allocate current outstanding balance to aging buckets
+            const sortedSales = [...salesWithNet].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            let remainingToAllocate = currentBal;
+
+            for (const s of sortedSales) {
+              if (remainingToAllocate <= 0) break;
+              const alloc = Math.min(remainingToAllocate, s.netAmount);
+              if (alloc > 0) {
+                const diffDays = Math.max(0, Math.floor((today - new Date(s.date)) / (1000 * 60 * 60 * 24)));
+                if (diffDays <= 7) b0_7 += alloc;
+                else if (diffDays <= 15) b8_15 += alloc;
+                else if (diffDays <= 30) b16_30 += alloc;
+                else b30P += alloc;
+                remainingToAllocate -= alloc;
+              }
+            }
+            if (remainingToAllocate > 0) {
+              b30P += remainingToAllocate;
+            }
           }
 
           grandTotal += currentBal;
@@ -1729,19 +1723,19 @@ export async function getReportData(req, res) {
           return {
             buyerName: cust.name,
             totalOutstanding: currentBal,
-            bucket0to7: b0_7,
-            bucket8to15: b8_15,
-            bucket16to30: b16_30,
-            bucket30Plus: b30P
+            bucket0to7: Math.round(b0_7 * 100) / 100,
+            bucket8to15: Math.round(b8_15 * 100) / 100,
+            bucket16to30: Math.round(b16_30 * 100) / 100,
+            bucket30Plus: Math.round(b30P * 100) / 100
           };
         }).filter(row => row.totalOutstanding > 0);
 
         totalsData = {
-          totalOutstanding: grandTotal,
-          bucket0to7: t0_7,
-          bucket8to15: t8_15,
-          bucket16to30: t16_30,
-          bucket30Plus: t30Plus
+          totalOutstanding: Math.round(grandTotal * 100) / 100,
+          bucket0to7: Math.round(t0_7 * 100) / 100,
+          bucket8to15: Math.round(t8_15 * 100) / 100,
+          bucket16to30: Math.round(t16_30 * 100) / 100,
+          bucket30Plus: Math.round(t30Plus * 100) / 100
         };
         break;
       }
@@ -1977,10 +1971,17 @@ export async function getReportData(req, res) {
 
             const totalInward = stockInwardQty + txInwardQty;
 
-            // Dispatches / Returns back to Supplier
+            // Dispatches / Returns back to Supplier (including produce returns routed back to supplier consignments)
             const supReturnTx = allCrateTransactions.filter(t => !t.isDeleted && t.partyId === sId && t.partyType === 'Supplier' && (t.type === 'Returned' || t.type === 'Dispatched') && t.date <= endStr);
-            const totalDispatched = supReturnTx.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
+            const txDispatchedQty = supReturnTx.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
 
+            const supReturnRecords = (allReturns || []).filter(r => {
+              const stock = r.stockEntryId ? stockMap.get(r.stockEntryId) : null;
+              return stock && stock.supplierId === sId && (!r.date || r.date <= endStr);
+            });
+            const supReturnedFromReturns = supReturnRecords.reduce((sum, r) => sum + (Number(r.totalCratesReturned) || Number(r.produceReturnedQty) || 0), 0);
+
+            const totalDispatched = txDispatchedQty + supReturnedFromReturns;
             const netOwedToSupplier = totalInward - totalDispatched;
 
             // Find last activity date
@@ -1988,7 +1989,8 @@ export async function getReportData(req, res) {
             const allSupDates = [
               ...supStock.map(st => st.date),
               ...supInwardTx.map(t => t.date),
-              ...supReturnTx.map(t => t.date)
+              ...supReturnTx.map(t => t.date),
+              ...supReturnRecords.map(r => r.date)
             ].filter(Boolean).sort();
             if (allSupDates.length > 0) {
               lastDate = allSupDates[allSupDates.length - 1];
@@ -2056,18 +2058,23 @@ export async function getReportData(req, res) {
 
             const totalIssued = salesIssuedQty + txIssuedQty;
 
-            // Returned empty crates from Customer
+            // Returned empty crates and produce return crates from Customer
             const custReturnTx = allCrateTransactions.filter(t => !t.isDeleted && t.partyId === cId && t.partyType === 'Customer' && (t.type === 'Received' || t.type === 'Returned') && t.date <= endStr);
-            const totalReturned = custReturnTx.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
+            const txReturnedQty = custReturnTx.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
 
-            const netPendingFromBuyer = totalIssued - totalReturned;
+            const allCustomerReturns = (allReturns || []).filter(r => (r.customerId === cId || (cust.isWalkIn && r.customerName === cust.name)) && (!r.date || r.date <= endStr));
+            const returnRecordCrates = allCustomerReturns.reduce((sum, r) => sum + (Number(r.totalCratesReturned) || Number(r.produceReturnedQty) || 0), 0);
+
+            const totalReturned = txReturnedQty + returnRecordCrates;
+            const netPendingFromBuyer = Math.max(0, totalIssued - totalReturned);
 
             // Find last activity date
             let lastDate = '-';
             const allCustDates = [
               ...custSales.map(s => s.date),
               ...custIssuedTx.map(t => t.date),
-              ...custReturnTx.map(t => t.date)
+              ...custReturnTx.map(t => t.date),
+              ...allCustomerReturns.map(r => r.date)
             ].filter(Boolean).sort();
             if (allCustDates.length > 0) {
               lastDate = allCustDates[allCustDates.length - 1];
@@ -2474,21 +2481,33 @@ export async function getReportData(req, res) {
         const expenseCategoryBreakdown = new Map();
 
         reportRows = filteredStock.map(st => {
-          // Compute sales realization or gross lot arrival value
-          const lotSales = allSales.filter(s => s.stockEntryId === (st.id || st._id));
-          const salesRealization = lotSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-          const grossAmount = salesRealization > 0 ? salesRealization : (st.totalAmount || 0);
+          const stId = String(st.id || st._id);
+          const lotSales = allSales.filter(s => String(s.stockEntryId) === stId);
+          const lotReturns = returnsByStockId.get(stId) || [];
 
-          // Supplier Commission Deduction
+          const rawSalesRealization = lotSales.reduce((sum, s) => sum + (Number(s.grossSale) || (Number(s.quantity) * Number(s.saleRate || 0)) || Number(s.totalAmount) || 0), 0);
+          const returnedLotGross = lotReturns.reduce((sum, r) => sum + (Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0))), 0);
+          const returnedLotQty = lotReturns.reduce((sum, r) => sum + (Number(r.produceReturnedQty) || 0), 0);
+
+          const salesRealization = Math.max(0, rawSalesRealization - returnedLotGross);
+          const rawStockTotal = Number(st.totalAmount) || (Number(st.quantity || 0) * Number(st.purchaseRate || 0));
+          const netStockTotal = Math.max(0, rawStockTotal - returnedLotGross);
+          const grossAmount = salesRealization > 0 ? salesRealization : netStockTotal;
+
+          const netLotQty = Math.max(0, (Number(st.quantity) || 0) - returnedLotQty);
+
+          // Supplier Commission Deduction based on updated net gross sale value
           const commType = st.supplierCommissionType || 'Percentage';
-          const commVal = st.supplierCommissionValue !== undefined ? st.supplierCommissionValue : 0;
+          const commVal = Number(st.supplierCommissionValue) || 0;
           let commAmt = 0;
-          if (commType === 'Percentage') {
-            commAmt = grossAmount * (commVal / 100);
-          } else if (commType === 'Per Unit') {
-            commAmt = (st.quantity || 0) * commVal;
-          } else if (commType === 'Fixed Amount') {
-            commAmt = commVal;
+          if (commVal > 0) {
+            if (commType === 'Percentage') {
+              commAmt = grossAmount * (commVal / 100);
+            } else if (commType === 'Per Unit') {
+              commAmt = netLotQty * commVal;
+            } else if (commType === 'Fixed Amount') {
+              commAmt = commVal;
+            }
           }
           commAmt = Math.round(commAmt * 100) / 100;
 
@@ -2504,13 +2523,13 @@ export async function getReportData(req, res) {
             });
           }
 
-          // Market / Sarkari Fee Deduction
+          // Market / Sarkari Fee Deduction based on updated net gross sale value
           const mktRate = Number(st.marketFeeRate || st.marketFeePercentage || 0);
           let mktFeeAmt = 0;
-          if (st.marketFeeAmount) {
-            mktFeeAmt = Number(st.marketFeeAmount);
-          } else if (mktRate > 0) {
+          if (mktRate > 0) {
             mktFeeAmt = Math.round((grossAmount * (mktRate / 100)) * 100) / 100;
+          } else if (st.marketFeeAmount) {
+            mktFeeAmt = Number(st.marketFeeAmount);
           }
           if (mktFeeAmt > 0) {
             lotExpAmt += mktFeeAmt;
@@ -2530,15 +2549,15 @@ export async function getReportData(req, res) {
           totLotExpDeduct += lotExpAmt;
           totDeductions += lotTotalDeductions;
           totNetPayable += netPay;
-          totQty += (st.quantity || 0);
+          totQty += netLotQty;
 
           return {
             date: st.date,
             lotNo: st.lotNumber ? `#${st.lotNumber}` : (st.id || st._id)?.slice(-6)?.toUpperCase(),
             supplierName: st.supplierName || 'Unknown Supplier',
             productName: st.productName || 'Produce Lot',
-            quantity: st.quantity || 0,
-            grossAmount,
+            quantity: netLotQty,
+            grossAmount: Math.round(grossAmount * 100) / 100,
             commissionDeduction: commAmt,
             marketFeeRate: mktRate,
             marketFeeDeduction: mktFeeAmt,
@@ -2609,13 +2628,23 @@ export async function getReportData(req, res) {
         const rows = [];
 
         filteredStock.forEach((st, idx) => {
-          const sId = st.id || st._id;
-          const lotSales = allSales.filter(s => s.stockEntryId === sId);
-          const salesRealization = lotSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
-          const grossTurnover = salesRealization > 0 ? salesRealization : (st.totalAmount || 0);
+          const sId = String(st.id || st._id);
+          const lotSales = allSales.filter(s => String(s.stockEntryId) === sId);
+          const lotReturns = returnsByStockId.get(sId) || [];
 
-          const lotSoldQty = lotSales.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
-          const volume = lotSoldQty > 0 ? lotSoldQty : (st.quantity || 0);
+          const rawSalesRealization = lotSales.reduce((sum, s) => sum + (Number(s.grossSale) || (Number(s.quantity) * Number(s.saleRate || 0)) || Number(s.totalAmount) || 0), 0);
+          const returnedLotGross = lotReturns.reduce((sum, r) => sum + (Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0))), 0);
+          const returnedLotQty = lotReturns.reduce((sum, r) => sum + (Number(r.produceReturnedQty) || 0), 0);
+
+          const salesRealization = Math.max(0, rawSalesRealization - returnedLotGross);
+          const rawStockTotal = Number(st.totalAmount) || (Number(st.quantity || 0) * Number(st.purchaseRate || 0));
+          const netStockTotal = Math.max(0, rawStockTotal - returnedLotGross);
+          const grossTurnover = salesRealization > 0 ? salesRealization : netStockTotal;
+
+          const rawLotSoldQty = lotSales.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
+          const netLotSoldQty = Math.max(0, rawLotSoldQty - returnedLotQty);
+          const netStockQty = Math.max(0, (Number(st.quantity) || 0) - returnedLotQty);
+          const volume = netLotSoldQty > 0 ? netLotSoldQty : netStockQty;
 
           // Real-time lookup of Market / Sarkari Fee rate configured on the Lot Inspection Sheet
           let rateVal = 0;
@@ -2626,10 +2655,10 @@ export async function getReportData(req, res) {
           }
 
           let feeAmt = 0;
-          if (st.marketFeeAmount !== undefined && st.marketFeeAmount !== null && Number(st.marketFeeAmount) > 0) {
-            feeAmt = Number(st.marketFeeAmount);
-          } else if (rateVal > 0) {
+          if (rateVal > 0) {
             feeAmt = Math.round((grossTurnover * (rateVal / 100)) * 100) / 100;
+          } else if (st.marketFeeAmount !== undefined && st.marketFeeAmount !== null && Number(st.marketFeeAmount) > 0) {
+            feeAmt = Number(st.marketFeeAmount);
           }
 
           grandAssessedTurnover += grossTurnover;
@@ -2658,21 +2687,27 @@ export async function getReportData(req, res) {
         if (rows.length === 0 && (!supplierId && !productId)) {
           const directSales = allSales.filter(s => s.date >= startStr && s.date <= endStr && !s.stockEntryId);
           directSales.forEach((s, idx) => {
-            const gross = s.totalAmount || 0;
+            const sId = String(s.id || s._id);
+            const sReturns = returnsBySaleId.get(sId) || [];
+            const retGross = sReturns.reduce((sum, r) => sum + (Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0))), 0);
+            const retQty = sReturns.reduce((sum, r) => sum + (Number(r.produceReturnedQty) || 0), 0);
+
+            const gross = Math.max(0, (Number(s.totalAmount) || 0) - retGross);
+            const qty = Math.max(0, (Number(s.quantity) || 0) - retQty);
             const fee = Math.round((gross * 0.01) * 100) / 100;
             grandAssessedTurnover += gross;
             grandMarketFeeDue += fee;
-            grandSoldVolume += (s.quantity || 0);
+            grandSoldVolume += qty;
             assessedLotsCount++;
 
             rows.push({
-              id: s.id || s._id,
+              id: sId,
               date: s.date,
-              lotNo: `INV-${(s.id || s._id).slice(-5).toUpperCase()}`,
+              lotNo: `INV-${sId.slice(-5).toUpperCase()}`,
               supplierName: s.customerName || (s.isWalkIn ? s.walkInName : 'Direct Trade'),
               commodity: s.productName || 'Produce',
-              quantity: s.quantity || 0,
-              grossTurnover: gross,
+              quantity: qty,
+              grossTurnover: Math.round(gross * 100) / 100,
               feeRate: '1.0%',
               feeAmount: fee,
               status: 'Direct Sale'
@@ -2831,9 +2866,27 @@ export async function getReportData(req, res) {
               entityMap.set(bId, { partyName: bName, role: 'Buyer', totalVolume: 0, totalValue: 0, commissionGenerated: 0 });
             }
             const obj = entityMap.get(bId);
-            obj.totalVolume += (s.quantity || 0);
-            obj.totalValue += (s.totalAmount || 0);
-            obj.commissionGenerated += (s.commissionAmount || Math.round((s.totalAmount || 0) * 0.05));
+
+            const rawQty = Number(s.quantity) || 0;
+            const sReturns = returnsBySaleId.get(String(s.id || s._id)) || [];
+            const retQty = sReturns.reduce((sum, r) => sum + (Number(r.produceReturnedQty) || 0), 0);
+            const retGross = sReturns.reduce((sum, r) => sum + (Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0))), 0);
+            const reversedComm = sReturns.reduce((sum, r) => {
+              let rev = Number(r.commissionReversedAmount) || 0;
+              if (!rev && Number(r.produceReturnedQty) > 0 && rawQty > 0 && Number(s.commissionAmount) > 0) {
+                rev = Number(r.produceReturnedQty) * (Number(s.commissionAmount) / rawQty);
+              }
+              return sum + rev;
+            }, 0);
+
+            const netQty = Math.max(0, rawQty - retQty);
+            const netVal = Math.max(0, (Number(s.totalAmount) || 0) - (retGross + reversedComm));
+            const rawComm = Number(s.commissionAmount) || 0;
+            const netComm = Math.max(0, rawComm - reversedComm);
+
+            obj.totalVolume += netQty;
+            obj.totalValue += netVal;
+            obj.commissionGenerated += netComm;
           });
         } else {
           const filteredStock = allStock.filter(st => st.date >= startStr && st.date <= endStr);
@@ -2844,12 +2897,30 @@ export async function getReportData(req, res) {
               entityMap.set(sId, { partyName: sName, role: 'Supplier', totalVolume: 0, totalValue: 0, commissionGenerated: 0 });
             }
             const obj = entityMap.get(sId);
-            obj.totalVolume += (st.quantity || 0);
-            obj.totalValue += (st.totalAmount || 0);
-            
-            const lotSales = filteredSales.filter(s => s.stockEntryId === (st.id || st._id));
-            const comm = lotSales.reduce((sum, s) => sum + (s.commissionAmount || Math.round((s.totalAmount || 0) * 0.05)), 0);
-            obj.commissionGenerated += comm;
+
+            const stId = String(st.id || st._id);
+            const lotReturns = returnsByStockId.get(stId) || [];
+
+            const rawStockQty = Number(st.quantity) || 0;
+            const returnedLotQty = lotReturns.reduce((sum, r) => sum + (Number(r.produceReturnedQty) || 0), 0);
+            const returnedLotGross = lotReturns.reduce((sum, r) => sum + (Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0))), 0);
+
+            const rawStockVal = Number(st.totalAmount) || (rawStockQty * Number(st.purchaseRate || 0));
+            const netStockVal = Math.max(0, rawStockVal - returnedLotGross);
+            const netStockQty = Math.max(0, rawStockQty - returnedLotQty);
+
+            obj.totalVolume += netStockQty;
+            obj.totalValue += netStockVal;
+
+            const commVal = Number(st.supplierCommissionValue) || 0;
+            const commType = st.supplierCommissionType || 'Percentage';
+            let lotComm = 0;
+            if (commVal > 0) {
+              if (commType === 'Percentage') lotComm = netStockVal * (commVal / 100);
+              else if (commType === 'Per Unit') lotComm = netStockQty * commVal;
+              else if (commType === 'Fixed Amount') lotComm = commVal;
+            }
+            obj.commissionGenerated += Math.round(lotComm * 100) / 100;
           });
         }
 
@@ -2857,7 +2928,12 @@ export async function getReportData(req, res) {
           .sort((a, b) => b.totalValue - a.totalValue)
           .slice(0, 10);
 
-        reportRows = sorted.map((r, i) => ({ ...r, rank: i + 1 }));
+        reportRows = sorted.map((r, i) => ({
+          ...r,
+          rank: i + 1,
+          totalValue: Math.round(r.totalValue * 100) / 100,
+          commissionGenerated: Math.round(r.commissionGenerated * 100) / 100
+        }));
 
         chartData = reportRows.map(r => ({
           name: r.partyName.split(' ')[0],
@@ -2866,8 +2942,8 @@ export async function getReportData(req, res) {
 
         totalsData = {
           totalVolume: reportRows.reduce((s, r) => s + r.totalVolume, 0),
-          totalValue: reportRows.reduce((s, r) => s + r.totalValue, 0),
-          commissionGenerated: reportRows.reduce((s, r) => s + r.commissionGenerated, 0)
+          totalValue: Math.round(reportRows.reduce((s, r) => s + r.totalValue, 0) * 100) / 100,
+          commissionGenerated: Math.round(reportRows.reduce((s, r) => s + r.commissionGenerated, 0) * 100) / 100
         };
         break;
       }
@@ -2897,34 +2973,29 @@ export async function getReportData(req, res) {
           const qty = Number(s.quantity) || 0;
           const grossVal = s.grossSale || (qty * (Number(s.saleRate) || 0)) || (Number(s.totalAmount) || 0);
 
-          // A. Customer Commission (خریدار کمیشن)
+          // A. Customer Commission (خریدار کمیشن) - only if actually entered
           const custComm = s.commissionAmount !== undefined && s.commissionAmount !== null
             ? Number(s.commissionAmount)
-            : Math.round((grossVal * 0.05) * 100) / 100;
+            : 0;
 
-          // B. Supplier Commission on this sale (زمیندار کمیشن)
+          // B. Supplier Commission on this sale (زمیندار کمیشن) - only if entered on lot inspection
           let suppComm = 0;
           const stockEntry = s.stockEntryId ? stockMap.get(s.stockEntryId) : null;
           if (stockEntry) {
             const commVal = Number(stockEntry.supplierCommissionValue) || 0;
             const commType = stockEntry.supplierCommissionType || 'Percentage';
-            if (commType === 'Percentage') {
-              const effectivePct = commVal > 0 ? commVal : 5;
-              suppComm = grossVal * (effectivePct / 100);
-            } else if (commType === 'Per Unit') {
-              const effectiveRate = commVal > 0 ? commVal : 10;
-              suppComm = qty * effectiveRate;
-            } else if (commType === 'Fixed Amount') {
-              const totalStockQty = Number(stockEntry.quantity) || 1;
-              suppComm = totalStockQty > 0 ? (commVal * (qty / totalStockQty)) : 0;
-            } else {
-              suppComm = grossVal * 0.05;
+            if (commVal > 0) {
+              if (commType === 'Percentage') {
+                suppComm = grossVal * (commVal / 100);
+              } else if (commType === 'Per Unit') {
+                suppComm = qty * commVal;
+              } else if (commType === 'Fixed Amount') {
+                const totalStockQty = Number(stockEntry.quantity) || 1;
+                suppComm = totalStockQty > 0 ? (commVal * (qty / totalStockQty)) : 0;
+              }
             }
             // Record that this stock entry has sales
             soldStockEntryMap.set(s.stockEntryId, (soldStockEntryMap.get(s.stockEntryId) || 0) + grossVal);
-          } else {
-            // Unlinked sale: standard mandi 5% supplier commission default
-            suppComm = grossVal * 0.05;
           }
 
           suppComm = Math.round(suppComm * 100) / 100;
@@ -2967,10 +3038,12 @@ export async function getReportData(req, res) {
             if (stockEntry) {
               const commVal = Number(stockEntry.supplierCommissionValue) || 0;
               const commType = stockEntry.supplierCommissionType || 'Percentage';
-              if (commType === 'Percentage') {
-                rSuppComm = rGross * ((commVal > 0 ? commVal : 5) / 100);
-              } else if (commType === 'Per Unit') {
-                rSuppComm = rQty * (commVal > 0 ? commVal : 10);
+              if (commVal > 0) {
+                if (commType === 'Percentage') {
+                  rSuppComm = rGross * (commVal / 100);
+                } else if (commType === 'Per Unit') {
+                  rSuppComm = rQty * commVal;
+                }
               }
             }
 
@@ -3006,15 +3079,14 @@ export async function getReportData(req, res) {
             const commType = st.supplierCommissionType || 'Percentage';
 
             let sComm = 0;
-            if (commType === 'Percentage') {
-              const effectivePct = commVal > 0 ? commVal : 5;
-              sComm = lotTradeVal * (effectivePct / 100);
-            } else if (commType === 'Per Unit') {
-              sComm = lotQty * (commVal > 0 ? commVal : 10);
-            } else if (commType === 'Fixed Amount') {
-              sComm = commVal;
-            } else {
-              sComm = lotTradeVal * 0.05;
+            if (commVal > 0) {
+              if (commType === 'Percentage') {
+                sComm = lotTradeVal * (commVal / 100);
+              } else if (commType === 'Per Unit') {
+                sComm = lotQty * commVal;
+              } else if (commType === 'Fixed Amount') {
+                sComm = commVal;
+              }
             }
 
             sComm = Math.round(sComm * 100) / 100;

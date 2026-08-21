@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Building2, Users, Layers, Search, FileText, Settings, 
   Plus, Edit2, Eye, Calendar, Clock, Key, LogIn, CheckCircle, 
   XCircle, RefreshCw, Sparkles, AlertCircle, X, Shield, HelpCircle
 } from 'lucide-react';
 import api from '../utils/api.js';
+import { TAB_TO_PATH, PATH_TO_TAB } from '../utils/routes.js';
+import DialogAlert from './common/DialogAlert.jsx';
 import SuperAdminOverview from './superAdmin/SuperAdminOverview.jsx';
 import BusinessManagement from './superAdmin/BusinessManagement.jsx';
 import SubscriptionManagement from './superAdmin/SubscriptionManagement.jsx';
@@ -13,9 +16,21 @@ import SuperAdminSearch from './superAdmin/SuperAdminSearch.jsx';
 import SuperAdminAuditLogs from './superAdmin/SuperAdminAuditLogs.jsx';
 import PlatformSettings from './superAdmin/PlatformSettings.jsx';
 
-export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
-  // Navigation / Active View
-  const [activeTab, setActiveTab] = useState(tab || 'saas-dashboard');
+export default function SuperAdminDashboard({ tab = 'saas-dashboard', onTabChange }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Derive active tab from URL pathname, fallback to prop
+  const currentPathTab = PATH_TO_TAB[location.pathname];
+  const activeTab = currentPathTab || tab || 'saas-dashboard';
+
+  const handleTabChange = (newTabId) => {
+    const path = TAB_TO_PATH[newTabId] || '/saas-dashboard';
+    navigate(path);
+    if (onTabChange) {
+      onTabChange(newTabId);
+    }
+  };
   
   // Data State
   const [businesses, setBusinesses] = useState([]);
@@ -25,6 +40,7 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [modalAlert, setModalAlert] = useState(null);
 
   // Filters & Query State for Business Management
   const [bizSearchQuery, setBizSearchQuery] = useState('');
@@ -102,19 +118,12 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
     status: 'Active',
   });
 
-  // Sync prop tab changes
+  // Sync prop tab changes via routing
   useEffect(() => {
-    if (tab) {
-      if (tab === 'saas-dashboard' || tab === 'dashboard') setActiveTab('saas-dashboard');
-      else if (tab === 'businesses') setActiveTab('businesses');
-      else if (tab === 'subscriptions') setActiveTab('subscriptions');
-      else if (tab === 'users') setActiveTab('users');
-      else if (tab === 'search') setActiveTab('search');
-      else if (tab === 'audit' || tab === 'audit-logs') setActiveTab('audit');
-      else if (tab === 'settings') setActiveTab('settings');
-      else setActiveTab(tab);
+    if (tab && !currentPathTab) {
+      handleTabChange(tab);
     }
-  }, [tab]);
+  }, [tab, currentPathTab]);
 
   // Load Initial Data
   useEffect(() => {
@@ -165,6 +174,7 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
       maxUsers: 10,
       subscriptionExpiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     });
+    setModalAlert(null);
     setCreateModalOpen(true);
   };
 
@@ -183,16 +193,19 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
   const handleCreateBusinessSubmit = async (e) => {
     e.preventDefault();
     if (!createFormData.name || !createFormData.email) {
-      showToast('Please fill in Business Name and Owner Email.', 'error');
+      setModalAlert({ type: 'error', message: 'Please fill in Business Name and Owner Email.' });
       return;
     }
+    setModalAlert(null);
     try {
       await api.post('/super-admin/businesses', createFormData);
       showToast('Business tenant registered successfully!', 'success');
       setCreateModalOpen(false);
+      setModalAlert(null);
       fetchInitialData();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to create business.', 'error');
+      const errMsg = err.response?.data?.error || 'Failed to create business.';
+      setModalAlert({ type: 'error', message: errMsg });
     }
   };
 
@@ -212,6 +225,7 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
       status: biz.status || biz.subscriptionStatus || 'Active',
       subscriptionExpiresAt: biz.subscriptionExpiresAt || biz.subscriptionExpiryDate || '',
     });
+    setModalAlert(null);
     setEditModalOpen(true);
   };
 
@@ -219,13 +233,16 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
     e.preventDefault();
     if (!selectedBusiness) return;
     const bizId = selectedBusiness.id || selectedBusiness._id;
+    setModalAlert(null);
     try {
       await api.put(`/super-admin/businesses/${bizId}`, editFormData);
       showToast('Business details updated successfully!', 'success');
       setEditModalOpen(false);
+      setModalAlert(null);
       fetchInitialData();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to update business.', 'error');
+      const errMsg = err.response?.data?.error || 'Failed to update business.';
+      setModalAlert({ type: 'error', message: errMsg });
     }
   };
 
@@ -432,8 +449,9 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
           return (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2.5 rounded-xl whitespace-nowrap flex items-center gap-2 transition ${
+              type="button"
+              onClick={() => handleTabChange(t.id)}
+              className={`px-4 py-2.5 rounded-xl whitespace-nowrap flex items-center gap-2 transition cursor-pointer ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -451,10 +469,10 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
         <SuperAdminOverview
           stats={stats}
           onNavigateTab={(tabName, filterValue) => {
-            setActiveTab(tabName);
             if (tabName === 'businesses' && filterValue) {
               setBizStatusFilter(filterValue);
             }
+            handleTabChange(tabName);
           }}
           onOpenExtendModal={handleOpenExtendModal}
           onSelectBusiness={handleOpenViewBusiness}
@@ -508,11 +526,11 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
       {activeTab === 'search' && (
         <SuperAdminSearch
           onSelectBusiness={(biz) => {
-            setActiveTab('businesses');
             setBizSearchQuery(biz.name || biz.businessName || '');
+            handleTabChange('businesses');
           }}
           onSelectUser={(u) => {
-            setActiveTab('users');
+            handleTabChange('users');
           }}
         />
       )}
@@ -549,6 +567,8 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            <DialogAlert alert={modalAlert} onDismiss={() => setModalAlert(null)} />
 
             <form onSubmit={handleCreateBusinessSubmit} className="mt-4 space-y-3.5 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -731,6 +751,8 @@ export default function SuperAdminDashboard({ tab = 'saas-dashboard' }) {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            <DialogAlert alert={modalAlert} onDismiss={() => setModalAlert(null)} />
 
             <form onSubmit={handleEditBusinessSubmit} className="mt-4 space-y-3.5 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

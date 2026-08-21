@@ -171,11 +171,11 @@ export async function addSale(req, res) {
 
     const totalBatchAmount = totalSupplierCreditAmount;
 
-    // --- APPLY RATE TO SUPPLIER ---
-    // Update Stock Entry remaining quantity, total amount, and weighted average purchase rate
+    // --- APPLY RATE & RECORD TO CONSIGNMENT LOT ---
+    // Update Stock Entry remaining quantity, total gross realized amount, and weighted average purchase rate
     const updatedRemaining = currentRemaining - totalQtyRequested;
     const updatedTotalAmount = (stockEntry.totalAmount || 0) + totalBatchAmount;
-    const updatedPurchaseRate = Math.round((updatedTotalAmount / stockEntry.quantity) * 100) / 100;
+    const updatedPurchaseRate = stockEntry.quantity > 0 ? Math.round((updatedTotalAmount / stockEntry.quantity) * 100) / 100 : rate;
 
     await StockEntry.findByIdAndUpdate(stockEntry.id || stockEntry._id, {
       remainingQuantity: updatedRemaining,
@@ -183,34 +183,10 @@ export async function addSale(req, res) {
       purchaseRate: updatedPurchaseRate,
     });
 
-    // --- POST TO SUPPLIER ACCOUNTS & GENERAL STATEMENT LEDGER ---
-    const newSupplierBalance = (supplier.currentBalance || 0) - totalBatchAmount;
-    const newTotalSupplied = (supplier.totalSupplied || 0) + totalBatchAmount;
-
-    await Supplier.findByIdAndUpdate(supplier.id || supplier._id, {
-      currentBalance: newSupplierBalance,
-      remainingBalance: newSupplierBalance,
-      totalSupplied: newTotalSupplied,
-    });
-
-    // Construct detailed Transaction Entry / Reference Description for General Statement Ledger
-    const buyerSummaryList = createdSales.map(s => {
-      const bName = s.isWalkIn ? (s.walkInName || 'Walk-In Customer') : s.customerName;
-      return `${bName} (${s.quantity} ${product.unit} @ Rs. ${rate})`;
-    });
-    const buyerSummaryStr = buyerSummaryList.join(', ');
-    const lotRef = stockEntry.lotNumber ? `Lot #${stockEntry.lotNumber}` : `Arrival Ref: ${String(stockEntry.id || stockEntry._id).substring(0, 8).toUpperCase()}`;
-
-    await Ledger.create({
-      tenantId,
-      partyId: supplier.id || supplier._id,
-      partyType: 'Supplier',
-      date,
-      type: 'Credit',
-      amount: totalBatchAmount,
-      balanceAfter: newSupplierBalance,
-      description: `BATCH SALE: Sold ${totalQtyRequested} ${product.unit} of ${product.name} @ Rs. ${rate} (Gross: Rs. ${totalBatchAmount.toLocaleString()}) to ${buyers.length} buyer(s): [${buyerSummaryStr}]. ${lotRef} (Arrival Date: ${stockEntry.date})`,
-    });
+    // NOTE: Under Mandi Consignment Settlement architecture (Option B), daily batch sales decrement
+    // consignment stock and record customer receivables. The Supplier Ledger is NOT credited on individual sales;
+    // it is credited once with the net payable (gross sales minus commission, freight, labor/hamali & expenses)
+    // when the lot inspection is finalized and "Submit to Payables" (Bikri Parchi) is recorded.
 
     // Audit Log
     await AuditLog.create({
@@ -219,7 +195,7 @@ export async function addSale(req, res) {
       userName: req.user.name,
       userRole: req.user.role,
       action: 'ADD_BATCH_SALE',
-      details: `Sold ${totalQtyRequested} ${product.unit} of ${product.name} from supplier ${supplier.name} at rate Rs. ${rate} to ${buyers.length} buyers. Total: Rs. ${totalBatchAmount}.`,
+      details: `Sold ${totalQtyRequested} ${product.unit} of ${product.name} from consignment lot #${stockEntry.lotNumber || String(stockEntry.id || stockEntry._id).substring(0,8).toUpperCase()} (Supplier: ${supplier.name}) at rate Rs. ${rate} to ${buyers.length} buyers. Total Realization: Rs. ${totalBatchAmount}. Consignment remaining: ${updatedRemaining} ${product.unit}.`,
       timestamp: new Date().toISOString(),
     });
 
@@ -302,8 +278,8 @@ export async function deleteSale(req, res) {
           purchaseRate: newPurchaseRate,
         });
 
-        // Revert Supplier Balance & post Debit reversal in Supplier General Statement Ledger
-        if (stockEntry.supplierId) {
+        // If the lot was already settled into payables previously, adjust the supplier balance and post reversal
+        if (stockEntry.isSettled && stockEntry.supplierId) {
           const supplier = await Supplier.findById(stockEntry.supplierId);
           if (supplier) {
             const revertedSuppBalance = (supplier.currentBalance || 0) + revertAmt;
@@ -322,7 +298,7 @@ export async function deleteSale(req, res) {
               type: 'Debit',
               amount: revertAmt,
               balanceAfter: revertedSuppBalance,
-              description: `DELETED SALE REVERSAL: Cancelled batch sale of ${quantity} ${productName || 'units'} @ Rs. ${saleRate} (Buyer: ${customerName || 'Customer'})`,
+              description: `DELETED SALE REVERSAL: Cancelled batch sale of ${quantity} ${productName || 'units'} @ Rs. ${saleRate} from settled lot #${stockEntry.lotNumber || ''} (Buyer: ${customerName || 'Customer'})`,
             });
           }
         }

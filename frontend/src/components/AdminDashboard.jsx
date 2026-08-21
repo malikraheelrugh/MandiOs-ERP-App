@@ -3,10 +3,11 @@ import api from '../utils/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useConfirm } from '../context/ConfirmContext.jsx';
+import DialogAlert from './common/DialogAlert.jsx';
 import {
   TrendingUp, ArrowDownRight, ArrowUpRight, Plus, Pencil, Trash, Trash2,
   Search, ShieldAlert, Calendar, FileSpreadsheet, Eye, Printer, Filter, CheckCircle2, Boxes, X, ShoppingBag,
-  Truck, DollarSign, Activity, FileText, Tag, CheckSquare, Layers, Percent, Clock, UserCheck, Users, RefreshCw, ChevronDown, ArrowUpDown, ArrowDown, ArrowUp, Download, ArrowDownLeft, CreditCard, RotateCcw, Receipt
+  Truck, DollarSign, Activity, FileText, Tag, CheckSquare, Layers, Percent, Clock, UserCheck, Users, RefreshCw, ChevronDown, ArrowUpDown, ArrowDown, ArrowUp, Download, ArrowDownLeft, CreditCard, RotateCcw, Receipt, Lock
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
@@ -449,6 +450,7 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
   const [modalMode, setModalMode] = useState('add'); // 'add', 'edit'
   const [selectedItem, setSelectedItem] = useState(null);
   const [formData, setFormData] = useState({});
+  const [modalAlert, setModalAlert] = useState(null);
 
   // Pay or Receive Tab Inline Form State
   const [payReceiveFormData, setPayReceiveFormData] = useState({
@@ -633,6 +635,7 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
     setModalType(type);
     setModalMode(mode);
     setSelectedItem(item);
+    setModalAlert(null);
 
     if (mode === 'edit' && item) {
       setFormData({
@@ -681,6 +684,7 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
     setModalType(null);
     setSelectedItem(null);
     setFormData({});
+    setModalAlert(null);
   };
 
   // Handle Form Change
@@ -694,6 +698,7 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
     e.preventDefault();
     if (modalSubmitting) return;
     setModalSubmitting(true);
+    setModalAlert(null);
     try {
       let endpoint = '';
       if (modalType === 'clerk') endpoint = '/clerks';
@@ -728,14 +733,64 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
       closeModal();
       fetchData();
     } catch (err) {
-      showToast(err.response?.data?.error || 'Failed to submit form', 'error');
+      const errMsg = err.response?.data?.error || 'Failed to submit form';
+      if (modalType) {
+        setModalAlert({ type: 'error', message: errMsg });
+      } else {
+        showToast(errMsg, 'error');
+      }
     } finally {
       setModalSubmitting(false);
     }
   };
 
+  // Helper to check if a supplier has linked data in the application
+  const isSupplierLinked = (sup) => {
+    if (!sup) return false;
+    const sId = String(sup.id || sup._id);
+    const sName = sup.name ? sup.name.trim().toLowerCase() : '';
+    if (Math.abs(Number(sup.currentBalance) || 0) > 0.01) return true;
+    if (Math.abs(Number(sup.remainingBalance) || 0) > 0.01) return true;
+    if (Number(sup.totalSupplied) > 0 || Number(sup.totalPaid) > 0) return true;
+    if (stockEntries?.some(st => String(st.supplierId) === sId || (st.supplierName && st.supplierName.trim().toLowerCase() === sName))) return true;
+    if (payments?.some(p => p.partyType === 'Supplier' && (String(p.partyId) === sId || (p.partyName && p.partyName.trim().toLowerCase() === sName)))) return true;
+    if (trucks?.some(t => String(t.supplierId) === sId || (t.supplierName && t.supplierName.trim().toLowerCase() === sName))) return true;
+    if (returns?.some(r => String(r.supplierId) === sId || (r.supplierName && r.supplierName.trim().toLowerCase() === sName))) return true;
+    return false;
+  };
+
+  // Helper to check if a customer has linked data in the application
+  const isCustomerLinked = (cust) => {
+    if (!cust) return false;
+    const cId = String(cust.id || cust._id);
+    const cName = cust.name ? cust.name.trim().toLowerCase() : '';
+    if (Math.abs(Number(cust.currentBalance) || 0) > 0.01) return true;
+    if (Math.abs(Number(cust.remainingBalance) || 0) > 0.01) return true;
+    if (Number(cust.totalPurchases) > 0 || Number(cust.totalPaid) > 0) return true;
+    if (sales?.some(s => String(s.customerId) === cId || (s.customerName && s.customerName.trim().toLowerCase() === cName))) return true;
+    if (payments?.some(p => p.partyType === 'Customer' && (String(p.partyId) === cId || (p.partyName && p.partyName.trim().toLowerCase() === cName)))) return true;
+    if (returns?.some(r => String(r.customerId) === cId || (r.customerName && r.customerName.trim().toLowerCase() === cName))) return true;
+    return false;
+  };
+
   // Handle Delete with Confirmation
   const handleDelete = async (type, id, name) => {
+    if (type === 'supplier') {
+      const sup = suppliers.find(s => String(s.id || s._id) === String(id));
+      if (isSupplierLinked(sup)) {
+        showToast(`Cannot delete supplier "${name}": This supplier has linked transactions/records (stock arrivals, payments, or ledger entries) in the application.`, 'error');
+        return;
+      }
+    }
+
+    if (type === 'customer') {
+      const cust = customers.find(c => String(c.id || c._id) === String(id));
+      if (isCustomerLinked(cust)) {
+        showToast(`Cannot delete customer "${name}": This customer has linked transactions/records (sales invoices, payments, or ledger entries) in the application.`, 'error');
+        return;
+      }
+    }
+
     const isUserType = ['clerk', 'supplier', 'customer', 'employee'].includes(type);
     const confirmMsg = isUserType
       ? `Are you sure you want to delete ${name}? This user will be soft-deleted and moved to the Deleted Users / Trash section, where they can be restored anytime.`
@@ -2598,9 +2653,20 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                           <button onClick={() => openModal('supplier', 'edit', sup)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-700 dark:text-slate-300">
                             <Pencil size={14} />
                           </button>
-                          <button onClick={() => handleDelete('supplier', sup.id || sup._id, sup.name)} className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400">
-                            <Trash size={14} />
-                          </button>
+                          {isSupplierLinked(sup) ? (
+                            <button 
+                              type="button"
+                              onClick={() => showToast(`Cannot delete "${sup.name}": Supplier is linked to active or historical records (stock arrivals, payments, or ledger transactions).`, 'error')} 
+                              title="Linked to mandi data - Deletion protected" 
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                            >
+                              <Lock size={14} />
+                            </button>
+                          ) : (
+                            <button onClick={() => handleDelete('supplier', sup.id || sup._id, sup.name)} className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400">
+                              <Trash size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -2684,9 +2750,20 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                           <button onClick={() => openModal('customer', 'edit', cust)} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-700 dark:text-slate-300">
                             <Pencil size={14} />
                           </button>
-                          <button onClick={() => handleDelete('customer', cust.id || cust._id, cust.name)} className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400">
-                            <Trash size={14} />
-                          </button>
+                          {isCustomerLinked(cust) ? (
+                            <button 
+                              type="button"
+                              onClick={() => showToast(`Cannot delete "${cust.name}": Customer is linked to active or historical records (sales invoices, payments, or ledger transactions).`, 'error')} 
+                              title="Linked to mandi data - Deletion protected" 
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                            >
+                              <Lock size={14} />
+                            </button>
+                          ) : (
+                            <button onClick={() => handleDelete('customer', cust.id || cust._id, cust.name)} className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400">
+                              <Trash size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -3648,6 +3725,8 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                 <button onClick={closeModal} className="text-slate-500 dark:text-slate-400 hover:text-white"><X size={18} /></button>
               </div>
 
+              <DialogAlert alert={modalAlert} onDismiss={() => setModalAlert(null)} />
+
               <form onSubmit={handleSubmit} className="space-y-4 text-xs">
                 
                 <div className="space-y-1">
@@ -3828,6 +3907,8 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                 <button onClick={closeModal} className="text-slate-500 dark:text-slate-400 hover:text-white"><X size={18} /></button>
               </div>
 
+              <DialogAlert alert={modalAlert} onDismiss={() => setModalAlert(null)} />
+
               <form onSubmit={handleSubmit} className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
@@ -3900,6 +3981,8 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                 <h3 className="text-base font-black uppercase tracking-wider">RECORD BATCH CONSIGNMENT SALE</h3>
                 <button onClick={closeModal} className="text-slate-500 dark:text-slate-400 hover:text-white"><X size={18} /></button>
               </div>
+
+              <DialogAlert alert={modalAlert} onDismiss={() => setModalAlert(null)} />
 
               <form onSubmit={handleSubmit} className="space-y-4 text-xs">
                 <div className="space-y-1">
@@ -4077,6 +4160,8 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                 <button onClick={closeModal} className="text-slate-500 dark:text-slate-400 hover:text-white"><X size={18} /></button>
               </div>
 
+              <DialogAlert alert={modalAlert} onDismiss={() => setModalAlert(null)} />
+
               <PaymentForm
                 formData={formData}
                 onChange={handleFormChange}
@@ -4098,6 +4183,8 @@ export default function AdminDashboard({ tab, setCurrentTab }) {
                 <h3 className="text-base font-black uppercase tracking-wider">{modalMode === 'add' ? 'Record Mandi Operating Expense' : 'Update Operating Expense Record'}</h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">Log expenditures for brokerage activities and general operations</p>
               </div>
+
+              <DialogAlert alert={modalAlert} onDismiss={() => setModalAlert(null)} />
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">

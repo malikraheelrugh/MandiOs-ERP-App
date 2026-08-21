@@ -322,10 +322,10 @@ export default function LotDetailsPage() {
             <CheckCircle2 size={14} />
             <span>
               {recordingSettlement
-                ? 'Posting...'
+                ? 'Settling...'
                 : (activeStock?.isSettled
-                    ? `✓ Recorded (Rs. ${(activeStock?.settledAmount || computedNetPayable || 0).toLocaleString()})`
-                    : 'Record to Payables & Supply Value')}
+                    ? `✓ Settled in Payables (Rs. ${(activeStock?.settledAmount || computedNetPayable || 0).toLocaleString()})`
+                    : 'Submit to Payables (Bikri Parchi)')}
             </span>
           </button>
 

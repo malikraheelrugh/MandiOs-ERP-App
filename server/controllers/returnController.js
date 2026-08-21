@@ -413,8 +413,8 @@ export async function approveReturn(req, res) {
             purchaseRate: newPurchaseRate
           });
 
-          // Update Supplier Ledger & Balance (Return value decreased from Supplier)
-          if (supplierGrossValue > 0 && stockEntry.supplierId) {
+          // Update Supplier Ledger & Balance (Only if this lot was already finalized and settled into payables)
+          if (stockEntry.isSettled && supplierGrossValue > 0 && stockEntry.supplierId) {
             const supplier = await Supplier.findById(stockEntry.supplierId);
             if (supplier) {
               const newSupplierBalance = (supplier.currentBalance || 0) + supplierGrossValue;
@@ -435,7 +435,7 @@ export async function approveReturn(req, res) {
                 type: 'Debit',
                 amount: supplierGrossValue,
                 balanceAfter: newSupplierBalance,
-                description: `PRODUCE RETURN DEDUCTION (${returnRecord.returnNumber}): Returned ${qty} ${returnRecord.unit || 'Crates'} of ${returnRecord.productName || 'Produce'} by customer ${returnRecord.customerName}. Lot #${stockEntry.lotNumber || String(stockEntry.id || stockEntry._id).substring(0,8).toUpperCase()} available quantity restocked to ${newRemaining} crates for resale.`
+                description: `PRODUCE RETURN DEDUCTION (${returnRecord.returnNumber}): Returned ${qty} ${returnRecord.unit || 'Crates'} of ${returnRecord.productName || 'Produce'} by customer ${returnRecord.customerName}. Settled Lot #${stockEntry.lotNumber || String(stockEntry.id || stockEntry._id).substring(0,8).toUpperCase()} payable adjusted. Available quantity restocked to ${newRemaining} crates.`
               });
             }
           }

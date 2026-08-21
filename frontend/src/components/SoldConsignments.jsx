@@ -1279,17 +1279,17 @@ export default function SoldConsignments({ user, setCurrentTab }) {
                 className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md ${
                   lotDetails?.isSettled
                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                 }`}
-                title="Calculate applicable amount and record to Outstanding Payables & Supplier Supply Value"
+                title="Calculate net payable and post final settlement (Bikri Parchi) to Supplier Khata & Outstanding Payables"
               >
                 <CheckCircle size={15} />
                 <span>
                   {recordingSettlement
-                    ? 'Recording...'
+                    ? 'Settling...'
                     : (lotDetails?.isSettled
-                        ? `✓ Recorded (Rs. ${(lotDetails?.settledAmount || computedNetPayable || 0).toLocaleString()})`
-                        : 'Record to Payables & Supply Value')}
+                        ? `✓ Settled in Payables (Rs. ${(lotDetails?.settledAmount || computedNetPayable || 0).toLocaleString()})`
+                        : 'Submit to Payables (Bikri Parchi)')}
                 </span>
               </button>
 
@@ -1601,8 +1601,8 @@ export default function SoldConsignments({ user, setCurrentTab }) {
                       <CheckCircle size={14} />
                       <span>
                         {recordingSettlement 
-                          ? 'Processing...' 
-                          : (lotDetails?.isSettled ? '✓ Recorded to Payables' : 'Record to Payables & Supply Value')}
+                          ? 'Settling...' 
+                          : (lotDetails?.isSettled ? `✓ Settled in Payables (Rs. ${(lotDetails?.settledAmount || computedNetPayable || 0).toLocaleString()})` : 'Submit to Payables (Bikri Parchi)')}
                       </span>
                     </button>
                   </div>

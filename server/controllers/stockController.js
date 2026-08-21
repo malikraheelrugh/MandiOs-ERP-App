@@ -494,7 +494,9 @@ export async function recordLotSettlement(req, res) {
 
     const tenantId = getTenantId(req) || entry.tenantId || 'tenant_default_001';
 
-    // Create Supplier Ledger entry
+    // Create Consolidated Supplier Ledger entry (Bikri Parchi / Consignment Settlement)
+    const lotDesc = `LOT SETTLEMENT (Bikri Parchi): Lot #${entry.lotNumber || id.substring(0, 8).toUpperCase()} (${entry.productName || 'Produce'}) - Realized Gross: Rs. ${lotGrossSales.toLocaleString()}, Total Deductions: Rs. ${totalDeductions.toLocaleString()} (Commission: Rs. ${supplierCommissionDeduction.toLocaleString()}, Market Fee: Rs. ${marketFeeDeduction.toLocaleString()}, Expenses: Rs. ${totalExpenseDeductions.toLocaleString()}), Net Payable: Rs. ${applicableAmount.toLocaleString()} credited to Supplier Khata.`;
+
     await Ledger.create({
       tenantId,
       partyId: entry.supplierId,
@@ -503,7 +505,7 @@ export async function recordLotSettlement(req, res) {
       type: 'Credit',
       amount: applicableAmount,
       balanceAfter: updatedBalance,
-      description: `LOT SETTLEMENT RECORDED: Lot #${entry.lotNumber || id.substring(0,8).toUpperCase()} - Applicable Amount Rs. ${applicableAmount.toLocaleString()} added to Outstanding Payables & Supply Value`
+      description: lotDesc
     });
 
     // Mark StockEntry as settled to ensure it is recorded only ONCE

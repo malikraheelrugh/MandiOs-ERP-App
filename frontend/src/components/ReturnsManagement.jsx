@@ -3,6 +3,7 @@ import api from '../utils/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { useConfirm } from '../context/ConfirmContext.jsx';
+import DialogAlert from './common/DialogAlert.jsx';
 import {
   RotateCcw, Plus, History, Search, CheckCircle2,
   AlertCircle, Clock, X, Printer, Check, Ban, Sparkles,
@@ -51,6 +52,7 @@ export default function ReturnsManagement({ user: propUser, role: propRole = 'Ad
   const [receiptModal, setReceiptModal] = useState(null);
   const [rejectPromptModal, setRejectPromptModal] = useState(null);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [rejectModalAlert, setRejectModalAlert] = useState(null);
 
   // Business settings for receipt
   const [businessProfile, setBusinessProfile] = useState(null);
@@ -238,16 +240,18 @@ export default function ReturnsManagement({ user: propUser, role: propRole = 'Ad
     }
     setRejectPromptModal(ret);
     setRejectReasonInput('');
+    setRejectModalAlert(null);
   };
 
   const handleConfirmReject = async () => {
     if (!rejectPromptModal) return;
     if (!rejectReasonInput.trim()) {
-      showToast('Please provide a short rejection reason.', 'error');
+      setRejectModalAlert({ type: 'error', message: 'Please provide a short rejection reason.' });
       return;
     }
 
     setLoading(true);
+    setRejectModalAlert(null);
     try {
       await api.post(`/returns/${rejectPromptModal.id || rejectPromptModal._id}/reject`, {
         rejectionReason: rejectReasonInput.trim()
@@ -255,11 +259,12 @@ export default function ReturnsManagement({ user: propUser, role: propRole = 'Ad
       showToast('Return rejected.', 'success');
       setRejectPromptModal(null);
       setRejectReasonInput('');
+      setRejectModalAlert(null);
       await fetchBaseData();
     } catch (err) {
       console.error('Reject return error:', err);
       const errMsg = err.response?.data?.error || 'Failed to reject return.';
-      showToast(errMsg, 'error');
+      setRejectModalAlert({ type: 'error', message: errMsg });
     } finally {
       setLoading(false);
     }
@@ -1100,6 +1105,8 @@ export default function ReturnsManagement({ user: propUser, role: propRole = 'Ad
                 Reject Return #{rejectPromptModal.returnNumber}
               </h3>
             </div>
+
+            <DialogAlert alert={rejectModalAlert} onDismiss={() => setRejectModalAlert(null)} />
 
             <p className="text-xs text-slate-500">
               Please enter the reason for rejecting this return voucher:
