@@ -939,6 +939,8 @@ export async function getReportData(req, res) {
       allLedgers,
       allPayments,
       allExpenses,
+      allTrucks,
+      allUsers,
       allCommissionRules,
       allReturns
     ] = await Promise.all([
@@ -950,6 +952,8 @@ export async function getReportData(req, res) {
       Ledger.find(buildTenantQuery(req)),
       Payment.find(buildTenantQuery(req)),
       Expense.find(buildTenantQuery(req)),
+      Truck.find(buildTenantQuery(req)),
+      User.find(buildTenantQuery(req)),
       CommissionRule.find(buildTenantQuery(req)),
       ReturnRecord.find({ ...buildTenantQuery(req), status: 'Approved', isDeleted: false })
     ]);
@@ -1180,6 +1184,48 @@ export async function getReportData(req, res) {
           }
         });
 
+        // Trade 3: Produce Returns (Returned produce item, quantity, condition & return value)
+        (allReturns || []).forEach(r => {
+          if (r.date >= startStr && r.date <= endStr && (Number(r.produceReturnedQty) > 0 || r.returnType === 'Produce' || r.returnType === 'Both')) {
+            const retQty = Number(r.produceReturnedQty) || 0;
+            const retRate = Number(r.saleRate) || 0;
+            const grossAmt = Number(r.grossReturnAmount) || (retQty * retRate);
+            const commRev = Number(r.commissionReversedAmount) || 0;
+            const totalRetAmt = Number(r.returnAmount) || (grossAmt + commRev);
+            const prodName = r.productName || 'Produce';
+            const unitName = r.unit || 'Crates';
+            const conditionStr = r.produceCondition ? ` [${r.produceCondition}]` : '';
+            const retNum = r.returnNumber || 'RET';
+            const reasonStr = r.reason ? ` - ${r.reason}` : '';
+            const lotInfo = r.stockEntryId ? ` (Lot #${String(r.stockEntryId).slice(-4).toUpperCase()})` : '';
+
+            rawItems.push({
+              id: r.id || r._id,
+              time: `${r.date} ${r.createdAt ? new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`,
+              date: r.date,
+              partyName: r.customerName || 'Customer Return',
+              partyType: 'Customer',
+              type: 'Produce Return',
+              category: 'Produce Return',
+              direction: 'RETURN',
+              isCash: false,
+              paymentMethod: 'Credit Adjustment',
+              item: `RETURN: ${prodName} - Returned ${retQty} ${unitName}${lotInfo} @ Rs. ${retRate.toLocaleString()}${reasonStr} (${retNum}${conditionStr})`,
+              quantity: retQty,
+              rate: retRate,
+              amount: totalRetAmt,
+              debit: totalRetAmt,
+              credit: 0,
+              commission: commRev,
+              productName: prodName,
+              unit: unitName,
+              returnNumber: retNum,
+              produceCondition: r.produceCondition || 'Good',
+              rawDate: new Date(r.createdAt || r.date)
+            });
+          }
+        });
+
         // Chronological sort
         rawItems.sort((a, b) => a.rawDate - b.rawDate);
 
@@ -1270,6 +1316,8 @@ export async function getReportData(req, res) {
             filtered = filtered.filter(item => item.type === 'Cash Sale');
           } else if (transactionType.includes('Credit Sale') || transactionType.includes('Credit Invoices') || transactionType.includes('ادھار بل')) {
             filtered = filtered.filter(item => item.type === 'Credit Sale');
+          } else if (transactionType.includes('Produce Return') || transactionType.includes('واپسی مال') || transactionType.includes('Returns')) {
+            filtered = filtered.filter(item => item.type === 'Produce Return' || item.category === 'Produce Return');
           } else if (transactionType.includes('Customer Receipts') || transactionType.includes('وصولیاں')) {
             filtered = filtered.filter(item => item.type === 'Receipt');
           } else if (transactionType.includes('Supplier Payments') || transactionType.includes('ادائیگیاں')) {
@@ -1293,7 +1341,9 @@ export async function getReportData(req, res) {
               return mode.includes('online') || mode.includes('easypaisa') || mode.includes('jazzcash') || mode.includes('wallet');
             }
             if (target.includes('cheque')) return mode.includes('cheque');
-            if (target.includes('credit') || target.includes('udhar')) return mode.includes('credit');
+            if (target.includes('credit') || target.includes('udhar') || target.includes('adjustment')) {
+              return mode.includes('credit') || mode.includes('adjustment');
+            }
             return mode === target;
           });
         }
@@ -1314,6 +1364,8 @@ export async function getReportData(req, res) {
             totalDebitAmt += item.amount;
           } else if (item.direction === 'CREDIT_TRADE') {
             totalCreditAmt += item.amount;
+          } else if (item.direction === 'RETURN') {
+            totalDebitAmt += item.amount;
           }
           totalQuantityFiltered += item.quantity;
 
@@ -1358,7 +1410,10 @@ export async function getReportData(req, res) {
           totalArrivalVolume,
           totalSalesAmount: Math.round(totalSalesAmount * 100) / 100,
           totalCommissionEarned,
-          totalShopExpenses
+          totalShopExpenses,
+          totalReturnedVolume: returnedSalesVol,
+          totalReturnedAmount: Math.round(returnedSalesAmt * 100) / 100,
+          totalReturnedCount: periodReturns.length
         };
 
         totalsData = {
@@ -1958,47 +2013,52 @@ export async function getReportData(req, res) {
         // 1. Process Supplier Inward Ledger (Growers / Consignors)
         if (isAll || isSupplierOnly) {
           allSuppliers.forEach(sup => {
-            const sId = sup.id || sup._id;
+            const sId = String(sup.id || sup._id || '');
+            const supName = (sup.name || '').trim().toLowerCase();
             if (activePartyId && activePartyId !== sId && activePartyId !== sup.name) return;
 
             // Inward crates from stock consignment arrivals
-            const supStock = allStock.filter(st => st.supplierId === sId && st.date <= endStr);
+            const supStock = allStock.filter(st => {
+              const matchesId = st.supplierId && String(st.supplierId) === sId;
+              const matchesName = supName && st.supplierName && String(st.supplierName).trim().toLowerCase() === supName;
+              return (matchesId || matchesName) && (!endStr || st.date <= endStr);
+            });
             const stockInwardQty = supStock.reduce((sum, st) => sum + (Number(st.quantity) || 0), 0);
 
-            // Manual Crate Inwards or Initial Adjustments
-            const supInwardTx = allCrateTransactions.filter(t => !t.isDeleted && t.partyId === sId && t.partyType === 'Supplier' && t.type === 'Received' && t.date <= endStr);
-            const txInwardQty = supInwardTx.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
-
-            const totalInward = stockInwardQty + txInwardQty;
-
-            // Dispatches / Returns back to Supplier (including produce returns routed back to supplier consignments)
-            const supReturnTx = allCrateTransactions.filter(t => !t.isDeleted && t.partyId === sId && t.partyType === 'Supplier' && (t.type === 'Returned' || t.type === 'Dispatched') && t.date <= endStr);
-            const txDispatchedQty = supReturnTx.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
-
-            const supReturnRecords = (allReturns || []).filter(r => {
-              const stock = r.stockEntryId ? stockMap.get(r.stockEntryId) : null;
-              return stock && stock.supplierId === sId && (!r.date || r.date <= endStr);
+            // Trucks associated with this supplier
+            const supTrucks = allTrucks.filter(t => {
+              const matchesId = t.supplierId && String(t.supplierId) === sId;
+              const matchesName = supName && t.supplierName && String(t.supplierName).trim().toLowerCase() === supName;
+              return (matchesId || matchesName) && (!endStr || (t.arrivalDate || t.dispatchDate || '') <= endStr);
             });
-            const supReturnedFromReturns = supReturnRecords.reduce((sum, r) => sum + (Number(r.totalCratesReturned) || Number(r.produceReturnedQty) || 0), 0);
 
-            const totalDispatched = txDispatchedQty + supReturnedFromReturns;
-            const netOwedToSupplier = totalInward - totalDispatched;
+            // Dispatched trucks loaded with empty crates back to the grower
+            const dispatchedTrucks = supTrucks.filter(t => 
+              (t.status === 'Dispatched' || t.status === 'Completed' || Boolean(t.dispatchDate)) && Number(t.quantityLoaded) > 0
+            );
+            const truckDispatchedQty = dispatchedTrucks.reduce((sum, t) => sum + (Number(t.quantityLoaded) || 0), 0);
+
+            // Settled consignments where crate balances have been finalized / accounted
+            const settledLots = supStock.filter(st => st.isSettled);
+            const settledLotsQty = settledLots.reduce((sum, st) => sum + (Number(st.quantity) || 0), 0);
+
+            const totalInward = stockInwardQty;
+            const totalDispatchedOrSettled = Math.min(totalInward, settledLotsQty + truckDispatchedQty);
+            const netOwedToSupplier = Math.max(0, totalInward - totalDispatchedOrSettled);
 
             // Find last activity date
             let lastDate = '-';
             const allSupDates = [
               ...supStock.map(st => st.date),
-              ...supInwardTx.map(t => t.date),
-              ...supReturnTx.map(t => t.date),
-              ...supReturnRecords.map(r => r.date)
+              ...supTrucks.map(t => t.dispatchDate || t.arrivalDate)
             ].filter(Boolean).sort();
             if (allSupDates.length > 0) {
               lastDate = allSupDates[allSupDates.length - 1];
             }
 
-            if (totalInward > 0 || totalDispatched > 0 || netOwedToSupplier !== 0) {
+            if (totalInward > 0 || totalDispatchedOrSettled > 0 || netOwedToSupplier !== 0) {
               grandSupInward += totalInward;
-              grandSupReturned += totalDispatched;
+              grandSupReturned += totalDispatchedOrSettled;
 
               const isSettled = netOwedToSupplier <= 0;
               const matchesStatus = statusFilter.includes('all') ||
@@ -2013,9 +2073,9 @@ export async function getReportData(req, res) {
                   rawPartyType: 'Supplier',
                   phone: sup.phone || '',
                   baseQuantity: totalInward,
-                  settledQuantity: totalDispatched,
+                  settledQuantity: totalDispatchedOrSettled,
                   netBalance: netOwedToSupplier,
-                  status: isSettled ? 'Settled' : `Owed: ${netOwedToSupplier} Crates`,
+                  status: isSettled ? 'Settled' : `Owed: ${netOwedToSupplier.toLocaleString()} Crates`,
                   lastActivityDate: lastDate,
                   actionPartyId: sId,
                   actionPartyType: 'Supplier'
@@ -2030,7 +2090,7 @@ export async function getReportData(req, res) {
           // Gather registered customers & unique walk-in buyers
           const customerEntities = new Map();
           allCustomers.forEach(c => {
-            customerEntities.set(c.id || c._id, { id: c.id || c._id, name: c.name, phone: c.phone || '', isWalkIn: false });
+            customerEntities.set(String(c.id || c._id), { id: String(c.id || c._id), name: c.name, phone: c.phone || '', isWalkIn: false });
           });
 
           // Check for walk-in sales
@@ -2041,39 +2101,47 @@ export async function getReportData(req, res) {
           });
 
           customerEntities.forEach(cust => {
-            const cId = cust.id;
+            const cId = String(cust.id);
+            const custName = (cust.name || '').trim().toLowerCase();
             if (activePartyId && activePartyId !== cId && activePartyId !== cust.name) return;
 
             // Issued crates from sales
             const custSales = allSales.filter(s => {
-              if (s.date > endStr) return false;
-              if (cust.isWalkIn) return s.walkInName === cId;
-              return s.customerId === cId;
+              if (s.isDeleted) return false;
+              if (endStr && s.date > endStr) return false;
+              if (cust.isWalkIn) return s.walkInName === cId || (s.walkInName && s.walkInName.toLowerCase() === custName);
+              const matchesId = s.customerId && String(s.customerId) === cId;
+              const matchesName = custName && s.customerName && String(s.customerName).trim().toLowerCase() === custName;
+              return matchesId || matchesName;
             });
             const salesIssuedQty = custSales.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
 
-            // Manual Crate Issues
-            const custIssuedTx = allCrateTransactions.filter(t => !t.isDeleted && t.partyId === cId && t.partyType === 'Customer' && t.type === 'Issued' && t.date <= endStr);
-            const txIssuedQty = custIssuedTx.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
+            // Approved returns (empty crates returned & produce returns)
+            const allCustomerReturns = (allReturns || []).filter(r => {
+              if (r.isDeleted || r.status !== 'Approved') return false;
+              if (endStr && r.date && r.date > endStr) return false;
+              if (cust.isWalkIn) return r.customerName === cust.name;
+              const matchesId = r.customerId && String(r.customerId) === cId;
+              const matchesName = custName && r.customerName && String(r.customerName).trim().toLowerCase() === custName;
+              return matchesId || matchesName;
+            });
 
-            const totalIssued = salesIssuedQty + txIssuedQty;
+            const returnRecordCrates = allCustomerReturns.reduce((sum, r) => {
+              const good = Number(r.goodCratesReturned) || 0;
+              const damaged = Number(r.damagedCratesReturned) || 0;
+              const totalRet = Number(r.totalCratesReturned) || 0;
+              const prodRet = Number(r.produceReturnedQty) || 0;
+              return sum + (totalRet || (good + damaged) || prodRet);
+            }, 0);
 
-            // Returned empty crates and produce return crates from Customer
-            const custReturnTx = allCrateTransactions.filter(t => !t.isDeleted && t.partyId === cId && t.partyType === 'Customer' && (t.type === 'Received' || t.type === 'Returned') && t.date <= endStr);
-            const txReturnedQty = custReturnTx.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
-
-            const allCustomerReturns = (allReturns || []).filter(r => (r.customerId === cId || (cust.isWalkIn && r.customerName === cust.name)) && (!r.date || r.date <= endStr));
-            const returnRecordCrates = allCustomerReturns.reduce((sum, r) => sum + (Number(r.totalCratesReturned) || Number(r.produceReturnedQty) || 0), 0);
-
-            const totalReturned = txReturnedQty + returnRecordCrates;
+            const totalIssued = salesIssuedQty;
+            const totalReturned = Math.min(totalIssued, returnRecordCrates);
             const netPendingFromBuyer = Math.max(0, totalIssued - totalReturned);
 
             // Find last activity date
             let lastDate = '-';
             const allCustDates = [
               ...custSales.map(s => s.date),
-              ...custIssuedTx.map(t => t.date),
-              ...custReturnTx.map(t => t.date),
               ...allCustomerReturns.map(r => r.date)
             ].filter(Boolean).sort();
             if (allCustDates.length > 0) {
@@ -2099,7 +2167,7 @@ export async function getReportData(req, res) {
                   baseQuantity: totalIssued,
                   settledQuantity: totalReturned,
                   netBalance: netPendingFromBuyer,
-                  status: isSettled ? 'Settled' : `Pending: ${netPendingFromBuyer} Crates`,
+                  status: isSettled ? 'Settled' : `Pending: ${netPendingFromBuyer.toLocaleString()} Crates`,
                   lastActivityDate: lastDate,
                   actionPartyId: cId,
                   actionPartyType: 'Customer'
@@ -2476,25 +2544,31 @@ export async function getReportData(req, res) {
         let totLotExpDeduct = 0;
         let totDeductions = 0;
         let totNetPayable = 0;
-        let totQty = 0;
+        let totArrivedQty = 0;
+        let totSoldQty = 0;
+        let totRemainingQty = 0;
 
         const expenseCategoryBreakdown = new Map();
 
         reportRows = filteredStock.map(st => {
           const stId = String(st.id || st._id);
-          const lotSales = allSales.filter(s => String(s.stockEntryId) === stId);
+          const lotSales = allSales.filter(s => String(s.stockEntryId) === stId && !s.isDeleted);
           const lotReturns = returnsByStockId.get(stId) || [];
 
           const rawSalesRealization = lotSales.reduce((sum, s) => sum + (Number(s.grossSale) || (Number(s.quantity) * Number(s.saleRate || 0)) || Number(s.totalAmount) || 0), 0);
+          const rawQtySold = lotSales.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
+
           const returnedLotGross = lotReturns.reduce((sum, r) => sum + (Number(r.grossReturnAmount) || (Number(r.produceReturnedQty || 0) * Number(r.saleRate || 0))), 0);
           const returnedLotQty = lotReturns.reduce((sum, r) => sum + (Number(r.produceReturnedQty) || 0), 0);
 
+          const arrivedQty = Number(st.quantity) || 0;
+          const netSoldQty = Math.max(0, rawQtySold - returnedLotQty);
+          const remainingQty = st.remainingQuantity !== undefined ? Number(st.remainingQuantity) : Math.max(0, arrivedQty - netSoldQty);
+
           const salesRealization = Math.max(0, rawSalesRealization - returnedLotGross);
-          const rawStockTotal = Number(st.totalAmount) || (Number(st.quantity || 0) * Number(st.purchaseRate || 0));
+          const rawStockTotal = Number(st.totalAmount) || (arrivedQty * Number(st.purchaseRate || 0));
           const netStockTotal = Math.max(0, rawStockTotal - returnedLotGross);
           const grossAmount = salesRealization > 0 ? salesRealization : netStockTotal;
-
-          const netLotQty = Math.max(0, (Number(st.quantity) || 0) - returnedLotQty);
 
           // Supplier Commission Deduction based on updated net gross sale value
           const commType = st.supplierCommissionType || 'Percentage';
@@ -2504,7 +2578,7 @@ export async function getReportData(req, res) {
             if (commType === 'Percentage') {
               commAmt = grossAmount * (commVal / 100);
             } else if (commType === 'Per Unit') {
-              commAmt = netLotQty * commVal;
+              commAmt = (netSoldQty > 0 ? netSoldQty : arrivedQty) * commVal;
             } else if (commType === 'Fixed Amount') {
               commAmt = commVal;
             }
@@ -2549,14 +2623,32 @@ export async function getReportData(req, res) {
           totLotExpDeduct += lotExpAmt;
           totDeductions += lotTotalDeductions;
           totNetPayable += netPay;
-          totQty += netLotQty;
+          totArrivedQty += arrivedQty;
+          totSoldQty += netSoldQty;
+          totRemainingQty += remainingQty;
+
+          const prod = productsMap.get(st.productId);
+          const unitStr = st.unit || prod?.unit || 'Crates';
+
+          let statusStr = 'Active';
+          if (st.isSettled) {
+            statusStr = 'Settled';
+          } else if (remainingQty <= 0 && netSoldQty > 0) {
+            statusStr = 'Sold Out';
+          } else if (netSoldQty > 0) {
+            statusStr = 'Partial';
+          }
 
           return {
             date: st.date,
             lotNo: st.lotNumber ? `#${st.lotNumber}` : (st.id || st._id)?.slice(-6)?.toUpperCase(),
             supplierName: st.supplierName || 'Unknown Supplier',
             productName: st.productName || 'Produce Lot',
-            quantity: netLotQty,
+            quantity: arrivedQty,
+            arrivedQuantity: arrivedQty,
+            soldQuantity: netSoldQty,
+            remainingQuantity: remainingQty,
+            unit: unitStr,
             grossAmount: Math.round(grossAmount * 100) / 100,
             commissionDeduction: commAmt,
             marketFeeRate: mktRate,
@@ -2564,17 +2656,21 @@ export async function getReportData(req, res) {
             lotExpenseDeduction: lotExpAmt,
             totalDeductions: lotTotalDeductions,
             netPayable: netPay,
-            status: st.isSettled ? 'Settled' : (st.remainingQuantity === 0 ? 'Sold Out' : 'Active')
+            status: statusStr
           };
         });
 
         // Summary Cards
         summaryData = {
+          totalConsignmentCrates: totArrivedQty,
           totalGrossValue: Math.round(totGross * 100) / 100,
           totalCommissionDeductions: Math.round(totCommDeduct * 100) / 100,
           totalLotExpenses: Math.round(totLotExpDeduct * 100) / 100,
           totalDeductions: Math.round(totDeductions * 100) / 100,
-          netPayableToSuppliers: Math.round(totNetPayable * 100) / 100
+          netPayableToSuppliers: Math.round(totNetPayable * 100) / 100,
+          totalCrates: totArrivedQty,
+          totalSoldCrates: totSoldQty,
+          totalRemainingCrates: totRemainingQty
         };
 
         // Chart Data (Visual breakdown of deduction categories)
@@ -2591,7 +2687,8 @@ export async function getReportData(req, res) {
         chartData = chartList;
 
         totalsData = {
-          quantity: totQty,
+          quantity: totArrivedQty,
+          soldQuantity: totSoldQty,
           grossAmount: Math.round(totGross * 100) / 100,
           commissionDeduction: Math.round(totCommDeduct * 100) / 100,
           lotExpenseDeduction: Math.round(totLotExpDeduct * 100) / 100,

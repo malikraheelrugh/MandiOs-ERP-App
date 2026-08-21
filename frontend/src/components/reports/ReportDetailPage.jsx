@@ -400,6 +400,14 @@ export default function ReportDetailPage({ user }) {
       totalCustomerCommission: 'Customer Commission (خریدار کمیشن)',
       totalSupplierCommission: 'Supplier Commission (زمیندار کمیشن)',
       totalTradeValue: 'Total Mandi Trade Value (کل تجارتی حجم)',
+      totalGrossValue: 'Total Gross Realization (کل مالیت)',
+      totalCommissionDeductions: 'Commission Deductions (کمیشن کٹوتی)',
+      totalLotExpenses: 'Lot Expenses Deducted (گاڑی خرچے)',
+      totalDeductions: 'Total Deductions (کل کٹوتیاں)',
+      netPayableToSuppliers: 'Net Payable to Suppliers (خالص رقم)',
+      totalConsignmentCrates: 'Total Arrived Crates (کل آمد کریٹ)',
+      totalSoldCrates: 'Sold Crates (فروخت شدہ کریٹ)',
+      totalRemainingCrates: 'Remaining Crates (بقایا کریٹ)',
       assessedTurnover: 'Assessed Turnover (کل نیلامی کاروبار)',
       totalMarketFeeDue: 'Total Market Fee (کل مارکیٹ فیس)',
       lotsAssessed: 'Assessed Lots (کل لاٹس)',
@@ -532,10 +540,21 @@ export default function ReportDetailPage({ user }) {
       );
     }
     if (col.format === 'number_bold') {
-      return <span className="font-bold text-slate-900 dark:text-white">{Number(val).toLocaleString()}</span>;
+      const num = Number(val) || 0;
+      if (config?.id === 'bardana') {
+        return <span className="font-bold text-slate-900 dark:text-white">{num.toLocaleString()} <span className="text-[11px] text-slate-400 font-normal">Crates</span></span>;
+      }
+      return <span className="font-bold text-slate-900 dark:text-white">{num.toLocaleString()}</span>;
     }
     if (col.format === 'number') {
-      return <span>{Number(val).toLocaleString()}</span>;
+      const num = Number(val) || 0;
+      if (config?.id === 'bardana' && (col.key === 'baseQuantity' || col.key === 'settledQuantity')) {
+        return <span>{num.toLocaleString()} <span className="text-[11px] text-slate-400 font-normal">Crates</span></span>;
+      }
+      if (row?.unit && (col.key === 'quantity' || col.key === 'soldQuantity' || col.key === 'remainingQuantity')) {
+        return <span>{num.toLocaleString()} <span className="text-[11px] text-slate-400 font-normal">{row.unit}</span></span>;
+      }
+      return <span>{num.toLocaleString()}</span>;
     }
 
     return String(val);

@@ -153,7 +153,10 @@ export default function DayBookReportPage() {
     totalArrivalVolume: 0,
     totalSalesAmount: 0,
     totalCommissionEarned: 0,
-    totalShopExpenses: 0
+    totalShopExpenses: 0,
+    totalReturnedVolume: 0,
+    totalReturnedAmount: 0,
+    totalReturnedCount: 0
   };
 
   const rawRows = reportData?.rows || [];
@@ -536,6 +539,7 @@ export default function DayBookReportPage() {
             >
               <option value="All">All Transactions (تمام اندراجات)</option>
               <option value="Cash Flow Only / Rokar (نقد بہاؤ)">🟢 Cash Flow Only / Rokar (نقد روکڑ)</option>
+              <option value="Produce Returns (واپسی مال)">↩️ Produce Returns (واپسی مال)</option>
               <option value="Customer Receipts (وصولیاں)">📥 Customer Receipts (وصولیاں)</option>
               <option value="Supplier Payments (ادائیگیاں)">📤 Supplier Payments (ادائیگیاں)</option>
               <option value="Walk-in Cash Sales (نقد فروخت)">🛒 Walk-In Cash Sales (نقد فروخت)</option>
@@ -766,13 +770,38 @@ export default function DayBookReportPage() {
                               ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                               : row.type === 'Payment' || row.type === 'Expense'
                               ? 'bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                              : row.type === 'Produce Return'
+                              ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
                               : 'bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
                           }`}>
-                            {row.type}
+                            {row.type === 'Produce Return' ? '↩ Produce Return' : row.type}
                           </span>
                         </td>
                         <td className="p-3 text-slate-600 dark:text-slate-300 text-xs">
-                          {row.item}
+                          {row.type === 'Produce Return' ? (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-900 dark:text-white">{row.productName || 'Produce'}</span>
+                                {row.produceCondition && (
+                                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                    row.produceCondition === 'Damaged' ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' :
+                                    row.produceCondition === 'Spoiled' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' :
+                                    'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                  }`}>
+                                    {row.produceCondition}
+                                  </span>
+                                )}
+                                {row.returnNumber && (
+                                  <span className="font-mono text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                                    {row.returnNumber}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400">{row.item}</p>
+                            </div>
+                          ) : (
+                            row.item
+                          )}
                         </td>
                         <td className="p-3 text-center text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
                           {row.paymentMethod}
@@ -866,6 +895,22 @@ export default function DayBookReportPage() {
                       <span className="text-lg font-black text-rose-600 dark:text-rose-400 mt-1 block">
                         Rs. {summary.totalShopExpenses.toLocaleString()}
                       </span>
+                    </div>
+                    <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 col-span-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 block font-semibold">Produce Returns (واپسی مال)</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300">
+                          {summary.totalReturnedCount || 0} Return Vouchers
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <span className="text-lg font-black text-amber-600 dark:text-amber-400">
+                          {summary.totalReturnedVolume?.toLocaleString() || 0} crates returned
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
+                          (Value: Rs. {summary.totalReturnedAmount?.toLocaleString() || 0})
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
