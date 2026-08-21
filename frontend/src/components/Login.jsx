@@ -40,6 +40,37 @@ export default function Login() {
 
   const isKhataRole = role === 'Customer' || role === 'Supplier';
 
+  const ROLES = [
+    { 
+      id: 'Admin', 
+      label: 'Admin', 
+      urdu: 'آڑھتی / مالک', 
+      sublabel: 'Shop Owner', 
+      icon: Shield 
+    },
+    { 
+      id: 'Clerk', 
+      label: 'Clerk', 
+      urdu: 'منشی / کیشیئر', 
+      sublabel: 'Desk Operator', 
+      icon: UserCheck 
+    },
+    { 
+      id: 'Customer', 
+      label: 'Customer', 
+      urdu: 'خریدار کھاتہ', 
+      sublabel: 'Buyer Khata', 
+      icon: ShoppingBag 
+    },
+    { 
+      id: 'Supplier', 
+      label: 'Supplier', 
+      urdu: 'زمیندار کھاتہ', 
+      sublabel: 'Farmer Khata', 
+      icon: Sprout 
+    },
+  ];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -55,14 +86,7 @@ export default function Login() {
 
   const handleRoleSelect = (selectedRole) => {
     setError('');
-    if (selectedRole === 'Khata party') {
-      // Default to Customer if switching to Khata party
-      if (role !== 'Customer' && role !== 'Supplier') {
-        setRole('Customer');
-      }
-    } else {
-      setRole(selectedRole);
-    }
+    setRole(selectedRole);
   };
 
   return (
@@ -184,94 +208,81 @@ export default function Login() {
             
             {/* Role Selection Group */}
             <div>
-              <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Select role
-              </label>
-              
-              <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
-                
-                {/* Admin Role Button */}
-                <button
-                  type="button"
-                  onClick={() => handleRoleSelect('Admin')}
-                  className={`py-3.5 px-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    role === 'Admin'
-                      ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
-                      : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
-                  }`}
-                >
-                  <Shield className={`w-5 h-5 ${role === 'Admin' ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
-                  <span className="text-xs sm:text-sm">Admin</span>
-                </button>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Select Role / کردار منتخب کریں
+                </label>
 
-                {/* Clerk Role Button */}
+                {/* Optional Super Admin Quick Toggle */}
                 <button
                   type="button"
-                  onClick={() => handleRoleSelect('Clerk')}
-                  className={`py-3.5 px-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    role === 'Clerk'
-                      ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
-                      : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
+                  onClick={() => handleRoleSelect(role === 'super_admin' ? 'Admin' : 'super_admin')}
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                    role === 'super_admin'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                   }`}
                 >
-                  <UserCheck className={`w-5 h-5 ${role === 'Clerk' ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
-                  <span className="text-xs sm:text-sm">Clerk</span>
-                </button>
-
-                {/* Khata Party Role Button */}
-                <button
-                  type="button"
-                  onClick={() => handleRoleSelect('Khata party')}
-                  className={`py-3.5 px-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    isKhataRole
-                      ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
-                      : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
-                  }`}
-                >
-                  <Users className={`w-5 h-5 ${isKhataRole ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
-                  <span className="text-xs sm:text-sm">Khata party</span>
+                  {role === 'super_admin' ? '✓ Super Admin' : 'Super Admin?'}
                 </button>
               </div>
+              
+              {/* 4 Direct 1-Click Role Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                {ROLES.map((r) => {
+                  const Icon = r.icon;
+                  const isSelected = role === r.id;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      id={`login-role-btn-${r.id.toLowerCase()}`}
+                      onClick={() => handleRoleSelect(r.id)}
+                      className={`p-3 sm:p-3.5 rounded-2xl border text-center flex flex-col items-center justify-between transition-all duration-150 cursor-pointer relative ${
+                        isSelected
+                          ? 'bg-[#E8F8EA] dark:bg-emerald-950/60 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-300 shadow-sm ring-1 ring-[#008717]/30'
+                          : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/50'
+                      }`}
+                    >
+                      {/* Top Icon */}
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-1.5 transition-colors ${
+                        isSelected 
+                          ? 'bg-[#008717] text-white shadow-xs' 
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        <Icon size={16} />
+                      </div>
 
-              {/* Sub-selector for Khata Party (Customer vs Supplier) */}
-              {isKhataRole && (
-                <div className="mt-2.5 p-1.5 bg-slate-100 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-1.5 animate-in fade-in duration-200">
-                  <button
-                    type="button"
-                    onClick={() => setRole('Customer')}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      role === 'Customer'
-                        ? 'bg-white dark:bg-slate-800 text-[#008717] dark:text-emerald-400 shadow-xs border border-slate-200 dark:border-slate-700'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <ShoppingBag size={14} />
-                    <span>Customer (Buyer)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRole('Supplier')}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      role === 'Supplier'
-                        ? 'bg-white dark:bg-slate-800 text-[#008717] dark:text-emerald-400 shadow-xs border border-slate-200 dark:border-slate-700'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <Sprout size={14} />
-                    <span>Supplier (Farmer)</span>
-                  </button>
-                </div>
-              )}
+                      {/* English Label */}
+                      <span className="text-xs sm:text-sm font-bold tracking-tight">
+                        {r.label}
+                      </span>
+
+                      {/* Urdu Subtitle */}
+                      <span className={`text-[10px] mt-0.5 font-medium ${
+                        isSelected ? 'text-[#008717] dark:text-emerald-400 font-semibold' : 'text-slate-400 dark:text-slate-500'
+                      }`}>
+                        {r.urdu}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Email / Identifier Field */}
+            {/* Email / Khata ID Field */}
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                {isKhataRole ? "Khata ID" : "Email address"}
+                {role === 'Customer' ? 'Customer Khata ID (خریدار کھاتہ نمبر)' :
+                 role === 'Supplier' ? 'Supplier Khata ID (زمیندار کھاتہ نمبر)' :
+                 role === 'super_admin' ? 'Super Admin Email Address' :
+                 role === 'Clerk' ? 'Clerk Email Address' :
+                 'Admin Email Address'}
               </label>
               <div className="relative">
                 <input
                   required
+                  id="login-identifier-input"
                   type={isKhataRole ? "text" : "email"}
                   value={identifier}
                   onChange={(e) => {
@@ -285,7 +296,8 @@ export default function Login() {
                     role === 'Customer' ? 'e.g. SFM-C-1' :
                     role === 'Supplier' ? 'e.g. SFM-S-1' :
                     role === 'super_admin' ? 'superadmin@mandios.com' :
-                    'you@mandi.com'
+                    role === 'Clerk' ? 'clerk@mandi.com' :
+                    'admin@mandi.com'
                   }
                   className={`w-full px-4 py-3 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#008717] focus:border-[#008717] transition-all ${
                     isKhataRole ? 'font-mono font-semibold uppercase tracking-wide' : 'font-normal'
@@ -294,7 +306,7 @@ export default function Login() {
               </div>
               {isKhataRole && (
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Enter your assigned Khata ID ({role === 'Customer' ? 'SFM-C-1' : 'SFM-S-1'})
+                  Enter your assigned Khata ID issued by your Arthi (e.g. {role === 'Customer' ? 'SFM-C-1' : 'SFM-S-1'})
                 </p>
               )}
             </div>

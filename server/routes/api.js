@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticateJWT, authorizeRoles } from '../middleware/auth.js';
-import { login, getProfile } from '../controllers/authController.js';
+import { login, getProfile, changePassword } from '../controllers/authController.js';
 import {
   getClerks, addClerk, editClerk, deleteClerk,
   getSuppliers, addSupplier, editSupplier, deleteSupplier, getNextSupplierKhataId,
@@ -58,6 +58,8 @@ router.get('/announcements/active', getActiveAnnouncements);
 
 // --- PROTECTED ROUTES (Requires Login) ---
 router.get('/auth/profile', authenticateJWT, getProfile);
+router.post('/auth/change-password', authenticateJWT, changePassword);
+router.put('/auth/change-password', authenticateJWT, changePassword);
 
 // --- PRODUCTS ---
 router.get('/products', authenticateJWT, getProducts);

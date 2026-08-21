@@ -1,19 +1,39 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+
 import { ensureDBConnected } from './config/db.js';
 import { seedDatabase } from './utils/seed.js';
 import apiRoutes from './routes/api.js';
 
-const app = express();
-const PORT = 3000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Enable CORS and JSON parsing
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// --------------------------------------------------
+// Middleware
+// --------------------------------------------------
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// REST APIs FIRST
+// --------------------------------------------------
+// Health Check
+// --------------------------------------------------
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'MandiOS server is running',
+  });
+});
+
+// --------------------------------------------------
+// API Routes
+// --------------------------------------------------
 app.use('/api', apiRoutes);
 
 // Global Error Handler for API routes
@@ -31,35 +51,57 @@ app.use('/api', (err, req, res, next) => {
     });
   }
   res.status(err.status || 500).json({
+    success: false,
     error: err.message || 'Internal Server Error'
   });
 });
 
+// --------------------------------------------------
+// Start Server & Frontend Middleware
+// --------------------------------------------------
 async function startServer() {
-  // Vite middleware in development mode, static serving in production
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
+  try {
+    // Mount Vite dev server in development, static files in production
+    if (process.env.NODE_ENV !== 'production') {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      // In production, static assets are in dist directory
+      const distPath = path.resolve(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+
+    // Global Fallback Error Handler
+    app.use((err, req, res, next) => {
+      console.error('Server Error:', err);
+      res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Internal server error',
+      });
     });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`MandiOS server running on http://0.0.0.0:${PORT}`);
     });
+
+    // Boot database connection and idempotent seed
+    ensureDBConnected()
+      .then(() => seedDatabase())
+      .then(() => console.log('MongoDB connected and verified successfully.'))
+      .catch((err) => console.error('Database connection/seed notice:', err.message || err));
+
+  } catch (error) {
+    console.error('Server startup failed:', error);
+    process.exit(1);
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Full-Stack Server running on http://0.0.0.0:${PORT}`);
-  });
-
-  // Boot operations: Seeding database asynchronously so server port 3000 opens immediately
-  ensureDBConnected()
-    .then(() => seedDatabase())
-    .catch((err) => console.error('Error seeding database on boot:', err));
 }
 
 startServer();
+
 

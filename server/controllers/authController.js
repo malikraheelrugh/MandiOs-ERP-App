@@ -236,3 +236,86 @@ export async function getProfile(req, res) {
     res.status(500).json({ error: 'Server error retrieving profile.' });
   }
 }
+
+export async function changePassword(req, res) {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ 
+        error: 'Please fill all 3 fields: current password, new password, and confirm password.' 
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ 
+        error: 'New password and confirm password do not match.' 
+      });
+    }
+
+    if (newPassword.trim().length < 6) {
+      return res.status(400).json({ 
+        error: 'New password must be at least 6 characters long.' 
+      });
+    }
+
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized user session.' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    // Verify current password with bcryptjs
+    let isCurrentValid = false;
+    if (user.password) {
+      try {
+        isCurrentValid = bcryptjs.compareSync(currentPassword.trim(), user.password);
+      } catch (e) {
+        isCurrentValid = false;
+      }
+    }
+
+    // Fallback comparison for unhashed legacy/test passwords
+    if (!isCurrentValid && user.password && currentPassword.trim() === user.password) {
+      isCurrentValid = true;
+    }
+
+    if (!isCurrentValid) {
+      return res.status(400).json({ 
+        error: 'Current password is incorrect. Please verify your old password and try again.' 
+      });
+    }
+
+    // Hash the new password securely
+    const salt = bcryptjs.genSaltSync(10);
+    const hashedPassword = bcryptjs.hashSync(newPassword.trim(), salt);
+
+    await User.findByIdAndUpdate(user.id || user._id, {
+      password: hashedPassword,
+      updatedAt: new Date().toISOString()
+    });
+
+    // Create Audit Log entry
+    await AuditLog.create({
+      tenantId: user.tenantId || 'tenant_default_001',
+      userId: user.id || user._id,
+      userName: user.name,
+      userRole: user.role,
+      action: 'PASSWORD_CHANGE',
+      details: `${user.role} "${user.name}" updated their password.`,
+      timestamp: new Date().toISOString(),
+    });
+
+    return res.json({ 
+      success: true,
+      message: 'Password changed successfully! You can now use your new password.' 
+    });
+  } catch (err) {
+    console.error('Error changing password:', err);
+    return res.status(500).json({ error: err.message || 'Server error while changing password.' });
+  }
+}

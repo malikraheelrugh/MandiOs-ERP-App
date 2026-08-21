@@ -178,6 +178,7 @@ export default function Layout({ children, currentTab: propCurrentTab, setCurren
                         { subId: 'expenses', subName: 'Expense Categories' },
                         { subId: 'payments', subName: 'Payment Methods' },
                         { subId: 'invoice', subName: 'Invoice Layout' },
+                        { subId: 'password', subName: 'Change Password' },
                       ].map(sub => {
                         const isSubActive = currentTab === `settings_${sub.subId}`;
                         return (

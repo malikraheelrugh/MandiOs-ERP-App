@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, Activity, Download, Server, Database, 
-  ShieldCheck, AlertCircle, Save, CheckCircle, RefreshCw
+  ShieldCheck, AlertCircle, Save, CheckCircle, RefreshCw, KeyRound
 } from 'lucide-react';
 import api from '../../utils/api.js';
+import ChangePassword from '../settings/ChangePassword.jsx';
 
 export default function PlatformSettings({ onShowToast }) {
-  const [activeSubTab, setActiveSubTab] = useState('settings'); // 'settings' | 'telemetry' | 'backup'
+  const [activeSubTab, setActiveSubTab] = useState('settings'); // 'settings' | 'telemetry' | 'backup' | 'password'
   const [settings, setSettings] = useState({
     platformName: 'MandiOS Cloud ERP',
     supportEmail: 'support@mandios.com',
@@ -107,6 +108,16 @@ export default function PlatformSettings({ onShowToast }) {
             }`}
           >
             Database Backup
+          </button>
+          <button
+            onClick={() => setActiveSubTab('password')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              activeSubTab === 'password' 
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' 
+                : 'text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            Change Password
           </button>
         </div>
       </div>
@@ -269,6 +280,11 @@ export default function PlatformSettings({ onShowToast }) {
             Download Full JSON Backup
           </button>
         </div>
+      )}
+
+      {/* VIEW 4: CHANGE PASSWORD */}
+      {activeSubTab === 'password' && (
+        <ChangePassword showToast={onShowToast} />
       )}
     </div>
   );
