@@ -939,8 +939,9 @@ export default function DayBookReportPage() {
           title="DAILY ROZNAMCHA / DAY BOOK STATEMENT"
           period={`${startDate} to ${endDate}`}
           filters={[
-            ...(filterMode !== 'all' ? [{ label: 'Flow Filter', value: filterMode }] : []),
-            ...(selectedMethod !== 'all' ? [{ label: 'Payment Method', value: selectedMethod }] : [])
+            ...(transactionType !== 'All' ? [{ label: 'Type', value: transactionType }] : []),
+            ...(paymentMode !== 'All' ? [{ label: 'Payment Mode', value: paymentMode }] : []),
+            ...(partyType !== 'All' ? [{ label: 'Party Type', value: partyType }] : [])
           ]}
           summaryMetrics={[
             { label: 'Opening Till', value: `Rs. ${summary.openingBalance.toLocaleString()}` },
