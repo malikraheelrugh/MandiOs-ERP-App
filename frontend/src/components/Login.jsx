@@ -19,7 +19,8 @@ import {
   ChevronDown, 
   ChevronUp, 
   KeyRound,
-  X
+  X,
+  MessageCircle
 } from 'lucide-react';
 import SpokeSpinner from './common/SpokeSpinner.jsx';
 
@@ -65,287 +66,303 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-[#090D16] flex items-center justify-center p-3 sm:p-6 md:p-10 font-sans transition-colors duration-200">
+    <div className="w-full min-h-screen bg-white dark:bg-[#1E293B] grid grid-cols-1 md:grid-cols-12 font-sans transition-colors duration-200">
       
-      {/* Main Split Card matching design */}
-      <div className="w-full max-w-4xl bg-white dark:bg-[#1E293B] rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[580px]">
+      {/* Left Green Brand Panel (Full Height edge-to-edge) */}
+      <div className="md:col-span-5 lg:col-span-5 bg-[#008717] p-8 sm:p-12 lg:p-16 text-slate-950 flex flex-col justify-between relative overflow-hidden select-none min-h-[420px] md:min-h-screen">
         
-        {/* Left Green Brand Panel */}
-        <div className="md:col-span-5 bg-[#008717] p-8 sm:p-10 text-slate-950 flex flex-col justify-between relative overflow-hidden select-none">
-          
-          {/* Top: Brand Header */}
-          <div>
-            {/* Logo Badge & Brand Name */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-black/90 dark:bg-black flex items-center justify-center shadow-md">
-                <Sprout className="w-6 h-6 text-[#00E528]" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-black dark:text-slate-950 tracking-tight">
-                MandiOS
-              </h1>
+        {/* Top: Brand Header */}
+        <div className="max-w-md">
+          {/* Logo Badge & Brand Name */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-black/90 dark:bg-black flex items-center justify-center shadow-md">
+              <Sprout className="w-6 h-6 text-[#00E528]" />
             </div>
-
-            {/* Tagline */}
-            <p className="mt-5 text-sm sm:text-base font-semibold text-black/90 dark:text-slate-950 leading-snug max-w-[240px]">
-              Sabzi and fruit commission trade engine
-            </p>
-
-            {/* Feature Highlights with Clean Icons */}
-            <div className="mt-10 sm:mt-12 space-y-5 sm:space-y-6">
-              <div className="flex items-center gap-3.5 text-black/90 dark:text-slate-950">
-                <BookOpen className="w-5 h-5 flex-shrink-0 text-black/90 dark:text-slate-950" />
-                <span className="font-semibold text-sm sm:text-base">Khata management</span>
-              </div>
-
-              <div className="flex items-center gap-3.5 text-black/90 dark:text-slate-950">
-                <Package className="w-5 h-5 flex-shrink-0 text-black/90 dark:text-slate-950" />
-                <span className="font-semibold text-sm sm:text-base">Bardana tracking</span>
-              </div>
-
-              <div className="flex items-center gap-3.5 text-black/90 dark:text-slate-950">
-                <Banknote className="w-5 h-5 flex-shrink-0 text-black/90 dark:text-slate-950" />
-                <span className="font-semibold text-sm sm:text-base">Peshgi advances</span>
-              </div>
-
-              <div className="flex items-center gap-3.5 text-black/90 dark:text-slate-950">
-                <BarChart3 className="w-5 h-5 flex-shrink-0 text-black/90 dark:text-slate-950" />
-                <span className="font-semibold text-sm sm:text-base">Reports hub</span>
-              </div>
-            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-black dark:text-slate-950 tracking-tight">
+              MandiOS
+            </h1>
           </div>
 
-          {/* Bottom Footer Note */}
-          <div className="mt-10 pt-6">
-            <p className="text-xs font-semibold text-black/80 dark:text-slate-950">
-              Built for Pakistan's mandis
-            </p>
+          {/* Tagline */}
+          <p className="mt-5 sm:mt-6 text-sm sm:text-base lg:text-lg font-semibold text-black/90 dark:text-slate-950 leading-snug">
+            Sabzi and fruit commission trade engine
+          </p>
+
+          {/* Feature Highlights with Clean Icons */}
+          <div className="mt-10 sm:mt-12 lg:mt-16 space-y-6 sm:space-y-7">
+            <div className="flex items-center gap-4 text-black/90 dark:text-slate-950">
+              <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 text-black/90 dark:text-slate-950" />
+              <span className="font-semibold text-sm sm:text-base lg:text-lg">Khata management</span>
+            </div>
+
+            <div className="flex items-center gap-4 text-black/90 dark:text-slate-950">
+              <Package className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 text-black/90 dark:text-slate-950" />
+              <span className="font-semibold text-sm sm:text-base lg:text-lg">Bardana tracking</span>
+            </div>
+
+            <div className="flex items-center gap-4 text-black/90 dark:text-slate-950">
+              <Banknote className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 text-black/90 dark:text-slate-950" />
+              <span className="font-semibold text-sm sm:text-base lg:text-lg">Peshgi advances</span>
+            </div>
+
+            <div className="flex items-center gap-4 text-black/90 dark:text-slate-950">
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 text-black/90 dark:text-slate-950" />
+              <span className="font-semibold text-sm sm:text-base lg:text-lg">Reports hub</span>
+            </div>
           </div>
         </div>
-
-        {/* Right Form Panel */}
-        <div className="md:col-span-7 p-6 sm:p-10 flex flex-col justify-between relative bg-white dark:bg-[#1E293B]">
-          
-          {/* Top Right Dark Mode Toggle */}
-          <div className="absolute top-6 right-6 z-10">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 flex items-center justify-center transition-all shadow-xs cursor-pointer"
-              title="Toggle dark mode"
-              aria-label="Toggle dark mode"
+ {/* WhatsApp Business Registration Section */}
+          <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 text-center">
+            <p className="text-xs font-semibold  dark:text-slate-300 mb-2">
+              اگر کسی بزنس نے رجسٹر کروانا ہو تو یہاں کلک کریں:
+            </p>
+            <a
+              id="whatsapp-business-register-btn"
+              href="https://wa.me/923704380337?text=Assalam%20o%20Alaikum%2C%20MandiOS%20par%20apna%20business%20commission%20shop%20register%20karwana%20hai."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-4 bg-[#25D366] hover:bg-[#20ba59] active:bg-[#1da850] text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer no-underline group"
             >
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <MessageCircle className="w-4 h-4 text-white" />
+              </div>
+              <span>Chat on WhatsApp </span>
+            </a>
           </div>
 
-          <div>
-            {/* Form Header */}
-            <div className="mb-6 pr-12">
-              <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">
-                Sign in
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
-                Welcome back to MandiOS
-              </h2>
+        {/* Bottom Footer Note */}
+        <div className="mt-12 pt-6 border-t border-black/10">
+          <p className="text-xs sm:text-sm font-semibold text-black/80 dark:text-slate-950">
+            Built for Pakistan's mandis
+          </p>
+        </div>
+      </div>
+
+      {/* Right Form Panel (Full Height edge-to-edge) */}
+      <div className="md:col-span-7 lg:col-span-7 p-6 sm:p-10 lg:p-16 flex flex-col justify-between relative bg-white dark:bg-[#1E293B] min-h-screen overflow-y-auto">
+        
+        {/* Top Right Dark Mode Toggle */}
+        <div className="absolute top-6 right-6 lg:top-8 lg:right-8 z-10">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 flex items-center justify-center transition-all shadow-xs cursor-pointer"
+            title="Toggle dark mode"
+            aria-label="Toggle dark mode"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+
+        {/* Centered Content Container */}
+        <div className="w-full max-w-lg mx-auto my-auto py-8">
+          {/* Form Header */}
+          <div className="mb-6 pr-12">
+            <span className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">
+              Sign in
+            </span>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-1">
+              Welcome back to MandiOS
+            </h2>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center justify-between animate-in fade-in">
+              <span>⚠️ {error}</span>
+              <button 
+                type="button" 
+                onClick={() => setError('')}
+                className="text-rose-400 hover:text-rose-600 p-1 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
             </div>
+          )}
 
-            {/* Error Message */}
-            {error && (
-              <div className="mb-5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center justify-between animate-in fade-in">
-                <span>⚠️ {error}</span>
-                <button 
-                  type="button" 
-                  onClick={() => setError('')}
-                  className="text-rose-400 hover:text-rose-600 p-1"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+            
+            {/* Role Selection Group */}
+            <div>
+              <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                Select role
+              </label>
               
-              {/* Role Selection Group */}
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Select role
-                </label>
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
                 
-                <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-                  
-                  {/* Admin Role Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleRoleSelect('Admin')}
-                    className={`py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      role === 'Admin'
-                        ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
-                        : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
-                    }`}
-                  >
-                    <Shield className={`w-5 h-5 ${role === 'Admin' ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
-                    <span className="text-xs sm:text-sm">Admin</span>
-                  </button>
-
-                  {/* Clerk Role Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleRoleSelect('Clerk')}
-                    className={`py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      role === 'Clerk'
-                        ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
-                        : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
-                    }`}
-                  >
-                    <UserCheck className={`w-5 h-5 ${role === 'Clerk' ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
-                    <span className="text-xs sm:text-sm">Clerk</span>
-                  </button>
-
-                  {/* Khata Party Role Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleRoleSelect('Khata party')}
-                    className={`py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      isKhataRole
-                        ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
-                        : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
-                    }`}
-                  >
-                    <Users className={`w-5 h-5 ${isKhataRole ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
-                    <span className="text-xs sm:text-sm">Khata party</span>
-                  </button>
-                </div>
-
-                {/* Sub-selector for Khata Party (Customer vs Supplier) */}
-                {isKhataRole && (
-                  <div className="mt-2.5 p-1.5 bg-slate-100 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-1.5 animate-in fade-in duration-200">
-                    <button
-                      type="button"
-                      onClick={() => setRole('Customer')}
-                      className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                        role === 'Customer'
-                          ? 'bg-white dark:bg-slate-800 text-[#008717] dark:text-emerald-400 shadow-xs border border-slate-200 dark:border-slate-700'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      <ShoppingBag size={14} />
-                      <span>Customer (Buyer)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRole('Supplier')}
-                      className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                        role === 'Supplier'
-                          ? 'bg-white dark:bg-slate-800 text-[#008717] dark:text-emerald-400 shadow-xs border border-slate-200 dark:border-slate-700'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                      }`}
-                    >
-                      <Sprout size={14} />
-                      <span>Supplier (Farmer)</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Email / Identifier Field */}
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {isKhataRole ? "Khata ID" : "Email address"}
-                </label>
-                <div className="relative">
-                  <input
-                    required
-                    type={isKhataRole ? "text" : "email"}
-                    value={identifier}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setIdentifier(isKhataRole ? val.toUpperCase() : val);
-                      if (val.trim().toLowerCase().includes('superadmin')) {
-                        setRole('super_admin');
-                      }
-                    }}
-                    placeholder={
-                      role === 'Customer' ? 'e.g. SFM-C-1' :
-                      role === 'Supplier' ? 'e.g. SFM-S-1' :
-                      role === 'super_admin' ? 'superadmin@mandios.com' :
-                      'you@mandi.com'
-                    }
-                    className={`w-full px-4 py-3 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#008717] focus:border-[#008717] transition-all ${
-                      isKhataRole ? 'font-mono font-semibold uppercase tracking-wide' : 'font-normal'
-                    }`}
-                  />
-                </div>
-                {isKhataRole && (
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Enter your assigned Khata ID ({role === 'Customer' ? 'SFM-C-1' : 'SFM-S-1'})
-                  </p>
-                )}
-              </div>
-
-              {/* Password Field */}
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    required
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-4 py-3 pr-11 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#008717] focus:border-[#008717] transition-all tracking-wider"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
-                    tabIndex={-1}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-
-                {/* Forgot Password Link */}
-                <div className="flex justify-end mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotModal(true)}
-                    className="text-xs sm:text-sm font-semibold text-[#008717] hover:text-[#006e13] dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors cursor-pointer"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              </div>
-
-              {/* Sign In Button */}
-              <div className="pt-2">
+                {/* Admin Role Button */}
                 <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 px-4 bg-[#008717] hover:bg-[#007514] active:bg-[#006612] text-white font-bold text-sm sm:text-base rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={() => handleRoleSelect('Admin')}
+                  className={`py-3.5 px-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    role === 'Admin'
+                      ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
+                      : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
+                  }`}
                 >
-                  {loading ? (
-                    <>
-                      <SpokeSpinner size={18} color="#FFFFFF" />
-                      <span>Signing in...</span>
-                    </>
-                  ) : (
-                    <span>Sign in to MandiOS</span>
-                  )}
+                  <Shield className={`w-5 h-5 ${role === 'Admin' ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
+                  <span className="text-xs sm:text-sm">Admin</span>
+                </button>
+
+                {/* Clerk Role Button */}
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect('Clerk')}
+                  className={`py-3.5 px-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    role === 'Clerk'
+                      ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
+                      : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
+                  }`}
+                >
+                  <UserCheck className={`w-5 h-5 ${role === 'Clerk' ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
+                  <span className="text-xs sm:text-sm">Clerk</span>
+                </button>
+
+                {/* Khata Party Role Button */}
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect('Khata party')}
+                  className={`py-3.5 px-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    isKhataRole
+                      ? 'bg-[#E8F8EA] dark:bg-emerald-950/50 border-[#008717] dark:border-emerald-500 text-[#008717] dark:text-emerald-400 font-bold shadow-xs'
+                      : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 font-semibold'
+                  }`}
+                >
+                  <Users className={`w-5 h-5 ${isKhataRole ? 'text-[#008717] dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`} />
+                  <span className="text-xs sm:text-sm">Khata party</span>
                 </button>
               </div>
-            </form>
 
-            {/* Bottom Register Prompt */}
-            <div className="mt-5 text-center">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                New here? <button type="button" onClick={() => setShowForgotModal(true)} className="text-slate-600 dark:text-slate-300 hover:underline font-medium cursor-pointer">Contact your arthi to get registered.</button>
-              </p>
+              {/* Sub-selector for Khata Party (Customer vs Supplier) */}
+              {isKhataRole && (
+                <div className="mt-2.5 p-1.5 bg-slate-100 dark:bg-slate-900/90 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-1.5 animate-in fade-in duration-200">
+                  <button
+                    type="button"
+                    onClick={() => setRole('Customer')}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      role === 'Customer'
+                        ? 'bg-white dark:bg-slate-800 text-[#008717] dark:text-emerald-400 shadow-xs border border-slate-200 dark:border-slate-700'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <ShoppingBag size={14} />
+                    <span>Customer (Buyer)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole('Supplier')}
+                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      role === 'Supplier'
+                        ? 'bg-white dark:bg-slate-800 text-[#008717] dark:text-emerald-400 shadow-xs border border-slate-200 dark:border-slate-700'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <Sprout size={14} />
+                    <span>Supplier (Farmer)</span>
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Email / Identifier Field */}
+            <div>
+              <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                {isKhataRole ? "Khata ID" : "Email address"}
+              </label>
+              <div className="relative">
+                <input
+                  required
+                  type={isKhataRole ? "text" : "email"}
+                  value={identifier}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setIdentifier(isKhataRole ? val.toUpperCase() : val);
+                    if (val.trim().toLowerCase().includes('superadmin')) {
+                      setRole('super_admin');
+                    }
+                  }}
+                  placeholder={
+                    role === 'Customer' ? 'e.g. SFM-C-1' :
+                    role === 'Supplier' ? 'e.g. SFM-S-1' :
+                    role === 'super_admin' ? 'superadmin@mandios.com' :
+                    'you@mandi.com'
+                  }
+                  className={`w-full px-4 py-3 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#008717] focus:border-[#008717] transition-all ${
+                    isKhataRole ? 'font-mono font-semibold uppercase tracking-wide' : 'font-normal'
+                  }`}
+                />
+              </div>
+              {isKhataRole && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Enter your assigned Khata ID ({role === 'Customer' ? 'SFM-C-1' : 'SFM-S-1'})
+                </p>
+              )}
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  required
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 pr-11 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#008717] focus:border-[#008717] transition-all tracking-wider"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              {/* Forgot Password Link */}
+              <div className="flex justify-end mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-xs sm:text-sm font-semibold text-[#008717] hover:text-[#006e13] dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors cursor-pointer"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            </div>
+
+            {/* Sign In Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-[#008717] hover:bg-[#007514] active:bg-[#006612] text-white font-bold text-sm sm:text-base rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <SpokeSpinner size={18} color="#FFFFFF" />
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <span>Sign in to MandiOS</span>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Bottom Register Prompt */}
+          <div className="mt-4 text-center">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              New here? <button type="button" onClick={() => setShowForgotModal(true)} className="text-slate-600 dark:text-slate-300 hover:underline font-medium cursor-pointer">Contact your arthi to get registered.</button>
+            </p>
           </div>
 
+         
           {/* Quick Demo Accs Accordion for Easy Testing */}
           <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
@@ -436,6 +453,7 @@ export default function Login() {
           </div>
         </div>
 
+        <div className="hidden md:block" />
       </div>
 
       {/* Forgot Password / Registration Modal */}
