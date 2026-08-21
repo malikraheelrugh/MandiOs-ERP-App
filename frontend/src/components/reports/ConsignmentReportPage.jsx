@@ -3,6 +3,7 @@ import api from '../../utils/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { exportToCSV } from '../../utils/navigation';
 import { Printer, Download, Filter, Search, DollarSign, RefreshCw, ShoppingBag } from 'lucide-react';
+import PrintReportHeader from '../common/PrintReportHeader.jsx';
 
 export default function ConsignmentReportPage() {
   const { t } = useLanguage();
@@ -133,19 +134,21 @@ export default function ConsignmentReportPage() {
       </div>
 
       {/* Printable Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — CONSIGNMENT SALES & TURNOVER REPORT</h1>
-            <p className="text-xs font-bold text-indigo-800">Date Range: {startDate || 'All Time'} to {endDate || 'Present'}</p>
-            <p className="text-[10px] text-slate-600 mt-0.5">Generated: {new Date().toLocaleString()}</p>
-          </div>
-          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
-            <p className="font-bold text-slate-700">Total Billed: <span className="font-black text-slate-900">Rs. {totalRevenue.toLocaleString()}</span></p>
-            <p className="font-bold text-indigo-700">Total Commission: <span className="font-black">Rs. {totalCommission.toLocaleString()}</span></p>
-          </div>
-        </div>
-      </div>
+      <PrintReportHeader
+        title="CONSIGNMENT SALES & BROKERAGE TURNOVER REPORT"
+        period={`${startDate || 'All-Time'} to ${endDate || 'Present'}`}
+        filters={[
+          ...(supplierFilter ? [{ label: 'Supplier', value: suppliers.find(s => s._id === supplierFilter)?.name || supplierFilter }] : []),
+          ...(customerFilter ? [{ label: 'Customer', value: customers.find(c => c._id === customerFilter)?.name || customerFilter }] : []),
+          ...(lotFilter ? [{ label: 'Lot #', value: lotFilter }] : [])
+        ]}
+        summaryMetrics={[
+          { label: 'Billed Vouchers', value: `${filteredSales.length} Invoices` },
+          { label: 'Quantity Billed', value: `${totalUnits.toLocaleString()} Units` },
+          { label: 'Gross Billed Amount', value: `Rs. ${totalRevenue.toLocaleString()}` },
+          { label: 'Brokerage Commission', value: `Rs. ${totalCommission.toLocaleString()}` }
+        ]}
+      />
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">

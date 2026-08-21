@@ -4,6 +4,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { exportToCSV } from '../../utils/navigation';
 import { downloadLotVoucherPDF } from '../../utils/pdfExport';
 import { Printer, Download, RefreshCw, Boxes, DollarSign, Calendar, Save, CheckCircle2, AlertCircle, Users, User, Layers, ShoppingBag, ArrowRight } from 'lucide-react';
+import PrintReportHeader from '../common/PrintReportHeader.jsx';
 
 export default function LotDetailsPage() {
   const { t } = useLanguage();
@@ -382,25 +383,21 @@ export default function LotDetailsPage() {
       </div>
 
       {/* Printable Letterhead Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — CONSIGNMENT LOT SETTLEMENT SHEET</h1>
-            <p className="text-xs font-bold text-indigo-800">
-              Lot #{activeStock?.lotNumber} | Product: {activeStock?.productName} ({activeStock?.unit || 'units'})
-            </p>
-            <p className="text-[10px] text-slate-600 mt-0.5">
-              Arrival Date: {activeStock?.arrivalDate || activeStock?.date} | Printed: {new Date().toLocaleString()}
-            </p>
-          </div>
-          {activeStock && (
-            <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
-              <p className="font-bold text-slate-700">Supplier: <span className="font-black text-slate-900">{activeStock.supplierName}</span></p>
-              <p className="font-bold text-slate-700">Lot Clearance: <span className="font-black text-indigo-700">{lotClearanceRate}%</span></p>
-            </div>
-          )}
-        </div>
-      </div>
+      <PrintReportHeader
+        title={`CONSIGNMENT LOT SETTLEMENT SHEET — LOT #${activeStock?.lotNumber || ''}`}
+        period={`Arrival: ${activeStock?.arrivalDate || activeStock?.date || 'N/A'}`}
+        filters={[
+          { label: 'Supplier', value: activeStock?.supplierName || 'N/A' },
+          { label: 'Produce Item', value: `${activeStock?.productName || 'Produce'} (${activeStock?.unit || 'units'})` },
+          { label: 'Clearance Status', value: `${lotClearanceRate}% Cleared` }
+        ]}
+        summaryMetrics={[
+          { label: 'Total Received', value: `${activeStock?.quantity || 0} ${activeStock?.unit || 'units'}` },
+          { label: 'Units Sold', value: `${totalSoldQty.toLocaleString()} units` },
+          { label: 'Gross Sales Value', value: `Rs. ${totalGrossSale.toLocaleString()}` },
+          { label: 'Net Supplier Payable', value: `Rs. ${netGrowerPayable.toLocaleString()}` }
+        ]}
+      />
 
       {loading ? (
         <div className="py-16 text-center text-slate-400 bg-white dark:bg-[#1E293B] rounded-2xl border border-slate-200 dark:border-slate-800">

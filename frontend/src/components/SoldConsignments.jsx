@@ -23,6 +23,7 @@ export default function SoldConsignments({ user, setCurrentTab }) {
   const [ledgerEntries, setLedgerEntries] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [returns, setReturns] = useState([]);
+  const [businessProfile, setBusinessProfile] = useState(null);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -47,7 +48,7 @@ export default function SoldConsignments({ user, setCurrentTab }) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [salesRes, stockRes, supRes, custRes, prodRes, auditRes, ledgerRes, expCatRes, returnsRes] = await Promise.all([
+      const [salesRes, stockRes, supRes, custRes, prodRes, auditRes, ledgerRes, expCatRes, returnsRes, bizRes] = await Promise.all([
         api.get('/sales').catch(() => ({ data: [] })),
         api.get('/stock').catch(() => ({ data: [] })),
         api.get('/suppliers').catch(() => ({ data: [] })),
@@ -56,7 +57,8 @@ export default function SoldConsignments({ user, setCurrentTab }) {
         api.get('/audit').catch(() => ({ data: [] })),
         api.get('/reports?type=custom').catch(() => ({ data: { ledger: [] } })), // ledger helper
         api.get('/settings/expense-categories').catch(() => ({ data: [] })),
-        api.get('/returns').catch(() => ({ data: [] }))
+        api.get('/returns').catch(() => ({ data: [] })),
+        api.get('/settings/business').catch(() => ({ data: null }))
       ]);
 
       const extractArray = (data) => Array.isArray(data) ? data : (Array.isArray(data?.products) ? data.products : (Array.isArray(data?.data) ? data.data : (Array.isArray(data?.returns) ? data.returns : [])));
@@ -69,6 +71,9 @@ export default function SoldConsignments({ user, setCurrentTab }) {
       setLedgerEntries(extractArray(ledgerRes.data?.ledger));
       setExpenseCategories(extractArray(expCatRes.data).filter(c => c.status !== 'Inactive'));
       setReturns(extractArray(returnsRes.data));
+      if (bizRes?.data) {
+        setBusinessProfile(bizRes.data);
+      }
     } catch (err) {
       console.error('Failed to load sold consignments details', err);
     } finally {
@@ -671,18 +676,29 @@ export default function SoldConsignments({ user, setCurrentTab }) {
     const totalDeductions = Math.round((suppCommAmt + marketFeeAmt + totalExpAmt) * 100) / 100;
     const netPayableToSupplier = Math.round((lotGrossSum - totalDeductions) * 100) / 100;
 
+    const bizName = businessProfile?.businessName || businessProfile?.name || 'Sabzi & Fruit Mandi Trade Brokerage';
+    const bizOwner = businessProfile?.ownerName ? `Proprietor: ${businessProfile.ownerName}` : '';
+    const bizPhone = [businessProfile?.mobileNumber, businessProfile?.whatsAppNumber].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' / ');
+    const bizAddr = [businessProfile?.address, businessProfile?.city].filter(Boolean).join(', ') || 'Mandi OS Platform, Pakistan';
+    const bizCode = businessProfile?.businessCode || businessProfile?.arthiCode || 'MR-01';
+
     return `
       <div style="font-family: 'Inter', system-ui, sans-serif; color: #1E293B;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 15px; margin-bottom: 20px;">
           <div>
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 900; color: #4F46E5;">
-              <img src="/mandi_logo.jpg" alt="Logo" style="height: 36px; border-radius: 4px; object-fit: contain;" onError="this.style.display='none'" />
-              <span>LAHORE SABZI & FRUIT MANDI BROKERAGE</span>
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 900; color: #4F46E5;">
+              <img src="${businessProfile?.logo || '/mandi_logo.jpg'}" alt="Logo" style="height: 36px; border-radius: 4px; object-fit: contain;" onError="this.style.display='none'" />
+              <span>${bizName.toUpperCase()}</span>
             </div>
-            <p style="margin: 4px 0 0 0; color: #64748B; font-size: 11px;">Shop #12, Vegetable Market, Lahore, Pakistan • Mandi OS Platform</p>
+            <div style="margin: 3px 0 0 0; color: #334155; font-size: 11px; font-weight: 600;">
+              ${bizOwner ? `<span>${bizOwner}</span> • ` : ''}
+              ${bizPhone ? `<span>📞 ${bizPhone}</span> • ` : ''}
+              <span>📍 ${bizAddr}</span>
+            </div>
+            <p style="margin: 2px 0 0 0; color: #64748B; font-size: 10px; font-family: monospace;">Arthi Reg Code: <strong>${bizCode}</strong></p>
           </div>
           <div style="text-align: right;">
-            <h2 style="margin: 0; font-size: 16px; color: #1E293B; text-transform: uppercase; font-weight: 900;">PROFESSIONAL LOT VOUCHER</h2>
+            <h2 style="margin: 0; font-size: 15px; color: #1E293B; text-transform: uppercase; font-weight: 900;">CONSIGNMENT LOT SETTLEMENT VOUCHER</h2>
             <p style="margin: 4px 0 0 0; font-size: 12px;">Lot No: <span style="background: #EEF2F6; padding: 4px 10px; border-radius: 6px; font-weight: 800; font-family: monospace;">#${lot.lotNumber}</span></p>
             <p style="margin: 2px 0 0 0; font-size: 10px; color: #64748B;">Issued: ${new Date().toLocaleDateString()}</p>
           </div>

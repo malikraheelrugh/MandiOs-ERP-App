@@ -43,6 +43,7 @@ import {
   Legend
 } from 'recharts';
 import jsPDF from 'jspdf';
+import PrintReportHeader from '../common/PrintReportHeader.jsx';
 import autoTable from 'jspdf-autotable';
 import { REPORTS_CONFIG } from '../../config/reportsConfig';
 
@@ -590,24 +591,28 @@ export default function ReportDetailPage({ user }) {
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto print:p-0 print:m-0 print:space-y-4">
 
-      {/* PRINT-ONLY MANDI OS LETTERHEAD */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — {config?.name || 'BUSINESS REPORT'}</h1>
-            <p className="text-xs font-bold text-indigo-800">
-              Audit Period: {startDate || asOfDate} to {endDate || asOfDate} | Tier: {config?.tier}
-            </p>
-            <p className="text-[10px] text-slate-600 mt-0.5">
-              Generated: {new Date().toLocaleString()} | User Role: {userRole}
-            </p>
-          </div>
-          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
-            <p className="font-bold text-slate-700">Total Records: <span className="font-black text-slate-900">{sortedRows?.length || 0} Entries</span></p>
-            <p className="font-bold text-slate-700">Status: <span className="font-black text-emerald-700">Audit Certified</span></p>
-          </div>
-        </div>
-      </div>
+      {/* PRINT-ONLY MANDI OS BUSINESS LETTERHEAD & SUMMARY */}
+      <PrintReportHeader
+        title={config?.name || 'BUSINESS REPORT'}
+        period={config?.dateModel === 'as_of' ? asOfDate : `${startDate || asOfDate} to ${endDate || asOfDate}`}
+        filters={[
+          ...(selectedPartyId ? [{ label: 'Party', value: partiesList.find(p => p.id === selectedPartyId)?.name || selectedPartyId }] : []),
+          ...(selectedSupplierId ? [{ label: 'Supplier', value: suppliersList.find(s => (s.id || s._id) === selectedSupplierId)?.name || selectedSupplierId }] : []),
+          ...(selectedCustomerId ? [{ label: 'Customer', value: customersList.find(c => (c.id || c._id) === selectedCustomerId)?.name || selectedCustomerId }] : []),
+          ...(selectedProductId ? [{ label: 'Product', value: productsList.find(p => (p.id || p._id) === selectedProductId)?.name || selectedProductId }] : []),
+          ...(paymentMode !== 'All' ? [{ label: 'Payment Mode', value: paymentMode }] : []),
+          ...(transactionType !== 'All' ? [{ label: 'Type', value: transactionType }] : [])
+        ]}
+        summaryMetrics={
+          reportData?.summaryCards?.length > 0
+            ? reportData.summaryCards.map(c => ({ label: c.title, value: c.value }))
+            : [
+                { label: 'Total Records', value: `${sortedRows?.length || 0} Entries` },
+                { label: 'Report Tier', value: config?.tier || 'Audit' },
+                { label: 'Audited Status', value: 'Verified' }
+              ]
+        }
+      />
 
       {/* SECTION 1: Report Title & Purpose */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm print:hidden">

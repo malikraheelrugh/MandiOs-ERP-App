@@ -3,6 +3,7 @@ import api from '../../utils/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { exportToCSV } from '../../utils/navigation';
 import { Printer, Download, Filter, Search, RefreshCw, Truck } from 'lucide-react';
+import PrintReportHeader from '../common/PrintReportHeader.jsx';
 
 export default function LogisticsReportPage() {
   const { t } = useLanguage();
@@ -116,21 +117,18 @@ export default function LogisticsReportPage() {
       </div>
 
       {/* Printable Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — TRUCK FREIGHT & LOGISTICS REPORT</h1>
-            <p className="text-xs font-bold text-indigo-800">
-              Filter: {statusFilter === 'All' ? 'All Vehicles' : statusFilter} | Period: {startDate || 'All Time'} to {endDate || 'Present'}
-            </p>
-            <p className="text-[10px] text-slate-600 mt-0.5">Generated: {new Date().toLocaleString()}</p>
-          </div>
-          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
-            <p className="font-bold text-slate-700">Total Freight: <span className="font-black text-slate-900">Rs. {totalFreight.toLocaleString()}</span></p>
-            <p className="font-bold text-slate-700">Total Labor: <span className="font-black text-slate-900">Rs. {totalLabor.toLocaleString()}</span></p>
-          </div>
-        </div>
-      </div>
+      <PrintReportHeader
+        title="TRUCK FREIGHT LOGISTICS & UNLOADING AUDIT STATEMENT"
+        period={`${startDate || 'All-Time'} to ${endDate || 'Present'}`}
+        filters={[
+          ...(statusFilter !== 'All' ? [{ label: 'Status', value: statusFilter }] : [])
+        ]}
+        summaryMetrics={[
+          { label: 'Total Arrived Trucks', value: `${filteredTrucks.length} Vehicles` },
+          { label: 'Total Freight Disbursed', value: `Rs. ${totalFreight.toLocaleString()}` },
+          { label: 'Total Mandi Labor Paid', value: `Rs. ${totalLabor.toLocaleString()}` }
+        ]}
+      />
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 print:hidden">

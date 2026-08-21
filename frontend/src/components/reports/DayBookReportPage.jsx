@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Coins
 } from 'lucide-react';
+import PrintReportHeader from '../common/PrintReportHeader.jsx';
 import {
   ResponsiveContainer,
   BarChart,
@@ -934,22 +935,20 @@ export default function DayBookReportPage() {
 
       {/* ----------------- PRINTABLE MANDI STATEMENT (A4 ROZNAMCHA) ----------------- */}
       <div className="hidden print:block space-y-4 text-black bg-white">
-        <div className="text-center border-b-2 border-black pb-3">
-          <h1 className="text-2xl font-black uppercase tracking-wider">MANDI OS — DAILY ROZNAMCHA / DAY BOOK</h1>
-          <p className="text-xs font-bold mt-1">Audit Period: {startDate} to {endDate} | Printed: {new Date().toLocaleString()}</p>
-        </div>
-
-        {/* Printable KPI Table */}
-        <table className="w-full border-collapse border border-black text-xs">
-          <tbody>
-            <tr className="bg-gray-100 font-bold">
-              <td className="border border-black p-2">Opening Till: Rs. {summary.openingBalance.toLocaleString()}</td>
-              <td className="border border-black p-2">Total Jama (In): Rs. {summary.totalInflows.toLocaleString()}</td>
-              <td className="border border-black p-2">Total Banam (Out): Rs. {summary.totalOutflows.toLocaleString()}</td>
-              <td className="border border-black p-2">Closing Till: Rs. {summary.closingBalance.toLocaleString()}</td>
-            </tr>
-          </tbody>
-        </table>
+        <PrintReportHeader
+          title="DAILY ROZNAMCHA / DAY BOOK STATEMENT"
+          period={`${startDate} to ${endDate}`}
+          filters={[
+            ...(filterMode !== 'all' ? [{ label: 'Flow Filter', value: filterMode }] : []),
+            ...(selectedMethod !== 'all' ? [{ label: 'Payment Method', value: selectedMethod }] : [])
+          ]}
+          summaryMetrics={[
+            { label: 'Opening Till', value: `Rs. ${summary.openingBalance.toLocaleString()}` },
+            { label: 'Total Jama (Inflows)', value: `Rs. ${summary.totalInflows.toLocaleString()}` },
+            { label: 'Total Banam (Outflows)', value: `Rs. ${summary.totalOutflows.toLocaleString()}` },
+            { label: 'Closing Till Balance', value: `Rs. ${summary.closingBalance.toLocaleString()}` }
+          ]}
+        />
 
         {/* Printable Transactions */}
         <table className="w-full border-collapse border border-black text-[10px] mt-3">

@@ -3,6 +3,7 @@ import api from '../../utils/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { exportToCSV } from '../../utils/navigation';
 import { Printer, Download, Filter, Search, RefreshCw, ShieldAlert } from 'lucide-react';
+import PrintReportHeader from '../common/PrintReportHeader.jsx';
 
 export default function AuditReportPage() {
   const { t } = useLanguage();
@@ -111,20 +112,19 @@ export default function AuditReportPage() {
       </div>
 
       {/* Printable Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — SYSTEM ACTIVITY & AUDIT TRAIL STATEMENT</h1>
-            <p className="text-xs font-bold text-indigo-800">
-              Role: {roleFilter} | Action: {actionFilter} | Total Audit Records: {filteredLogs.length}
-            </p>
-            <p className="text-[10px] text-slate-600 mt-0.5">Report Generated: {new Date().toLocaleString()}</p>
-          </div>
-          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
-            <p className="font-bold text-slate-700">Security Status: <span className="font-black text-emerald-700">Verified & Logged</span></p>
-          </div>
-        </div>
-      </div>
+      <PrintReportHeader
+        title="SYSTEM ACTIVITY & SECURITY AUDIT TRAIL STATEMENT"
+        period={`${startDate || 'All-Time'} to ${endDate || 'Present'}`}
+        filters={[
+          ...(roleFilter !== 'All' ? [{ label: 'User Role', value: roleFilter }] : []),
+          ...(actionFilter !== 'All' ? [{ label: 'Event Action', value: actionFilter }] : [])
+        ]}
+        summaryMetrics={[
+          { label: 'Audit Records', value: `${filteredLogs.length} Events` },
+          { label: 'Security Level', value: 'Tenant Isolated' },
+          { label: 'Audit Protocol', value: 'Immutable System Log' }
+        ]}
+      />
 
       {/* Filter Controls Bar */}
       <div className="bg-white dark:bg-[#1E293B] p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 print:hidden">

@@ -3,6 +3,7 @@ import api from '../../utils/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { exportToCSV } from '../../utils/navigation';
 import { Printer, Download, Filter, Search, Boxes, RefreshCw } from 'lucide-react';
+import PrintReportHeader from '../common/PrintReportHeader.jsx';
 
 export default function StockReportPage() {
   const { t } = useLanguage();
@@ -165,21 +166,21 @@ export default function StockReportPage() {
       </div>
 
       {/* Printable Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — INVENTORY STOCK & WAREHOUSE BALANCE REPORT</h1>
-            <p className="text-xs font-bold text-indigo-800">
-              Supplier Filter: {supplierFilter || 'All'} | Product: {productFilter || 'All'} | Status: {statusFilter}
-            </p>
-            <p className="text-[10px] text-slate-600 mt-0.5">Generated: {new Date().toLocaleString()}</p>
-          </div>
-          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
-            <p className="font-bold text-slate-700">Total Received: <span className="font-black text-slate-900">{totalReceivedQty.toLocaleString()}</span></p>
-            <p className="font-bold text-slate-700">Remaining Stock: <span className="font-black text-amber-700">{totalRemainingQty.toLocaleString()}</span></p>
-          </div>
-        </div>
-      </div>
+      <PrintReportHeader
+        title="INVENTORY STOCK ARRIVAL & WAREHOUSE BALANCE REPORT"
+        period={`${startDate || 'All-Time'} to ${endDate || 'Present'}`}
+        filters={[
+          ...(supplierFilter ? [{ label: 'Supplier', value: suppliers.find(s => s._id === supplierFilter)?.name || supplierFilter }] : []),
+          ...(productFilter ? [{ label: 'Produce Item', value: products.find(p => p._id === productFilter)?.name || productFilter }] : []),
+          ...(statusFilter !== 'All' ? [{ label: 'Stock Status', value: statusFilter }] : [])
+        ]}
+        summaryMetrics={[
+          { label: 'Consignment Lots', value: `${filteredStock.length} Lots` },
+          { label: 'Total Received Qty', value: `${totalReceivedQty.toLocaleString()} Units` },
+          { label: 'Total Sold Qty', value: `${totalSoldQty.toLocaleString()} Units` },
+          { label: 'Remaining Warehouse Stock', value: `${totalRemainingQty.toLocaleString()} Units` }
+        ]}
+      />
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
