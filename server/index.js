@@ -19,12 +19,16 @@ app.use('/api', apiRoutes);
 // Global Error Handler for API routes
 app.use('/api', (err, req, res, next) => {
   console.error('REST API Error:', err);
-  if (err.name === 'MongooseError' || err.name === 'MongoNetworkError' || (err.message && err.message.includes('buffering timed out'))) {
-    console.warn('[AI Studio] Database offline — returning fallback response');
-    if (req.method === 'GET') {
-      return res.json(req.path.endsWith('s') || req.path.endsWith('s/') ? [] : {});
-    }
-    return res.status(503).json({ error: 'Service temporarily unavailable (database offline)' });
+  if (
+    err.name === 'MongooseError' || 
+    err.name === 'MongoNetworkError' || 
+    err.name === 'DatabaseOfflineError' || 
+    (err.message && err.message.includes('buffering timed out'))
+  ) {
+    return res.status(503).json({ 
+      error: 'Database is currently unavailable. Please verify MongoDB cluster connection.',
+      code: 'DATABASE_UNAVAILABLE'
+    });
   }
   res.status(err.status || 500).json({
     error: err.message || 'Internal Server Error'
