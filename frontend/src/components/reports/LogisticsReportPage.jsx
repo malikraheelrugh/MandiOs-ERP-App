@@ -116,12 +116,18 @@ export default function LogisticsReportPage() {
       </div>
 
       {/* Printable Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-300 pb-4 mb-6">
+      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-black uppercase tracking-wider">LAHORE SABZI & FRUIT MANDI BROKERAGE</h1>
-            <p className="text-sm font-bold text-indigo-700">Truck Freight Logistics & Unloading Audit Statement</p>
-            <p className="text-xs text-slate-500 mt-1">Report Generated: {new Date().toLocaleString()}</p>
+            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — TRUCK FREIGHT & LOGISTICS REPORT</h1>
+            <p className="text-xs font-bold text-indigo-800">
+              Filter: {statusFilter === 'All' ? 'All Vehicles' : statusFilter} | Period: {startDate || 'All Time'} to {endDate || 'Present'}
+            </p>
+            <p className="text-[10px] text-slate-600 mt-0.5">Generated: {new Date().toLocaleString()}</p>
+          </div>
+          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
+            <p className="font-bold text-slate-700">Total Freight: <span className="font-black text-slate-900">Rs. {totalFreight.toLocaleString()}</span></p>
+            <p className="font-bold text-slate-700">Total Labor: <span className="font-black text-slate-900">Rs. {totalLabor.toLocaleString()}</span></p>
           </div>
         </div>
       </div>
@@ -272,6 +278,16 @@ export default function LogisticsReportPage() {
                 ))
               )}
             </tbody>
+            {filteredTrucks.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-100 dark:bg-slate-800/90 font-bold border-t-2 border-slate-300 dark:border-slate-700 text-[11px] text-slate-900 dark:text-white">
+                  <td colSpan="5" className="py-3 px-4 font-black">TOTALS ({filteredTrucks.length} Trucks)</td>
+                  <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">Rs. {totalFreight.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">Rs. {totalLabor.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-center">-</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>

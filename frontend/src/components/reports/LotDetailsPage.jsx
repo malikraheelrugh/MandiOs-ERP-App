@@ -382,18 +382,21 @@ export default function LotDetailsPage() {
       </div>
 
       {/* Printable Letterhead Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-300 pb-4 mb-6">
+      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-black uppercase tracking-wider">LAHORE SABZI & FRUIT MANDI BROKERAGE</h1>
-            <p className="text-sm font-bold text-indigo-700">Consignment Lot Settlement & Date-Wise Sales Sheet — Lot #{activeStock?.lotNumber}</p>
-            <p className="text-xs text-slate-500 mt-1">Generated: {new Date().toLocaleString()}</p>
+            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — CONSIGNMENT LOT SETTLEMENT SHEET</h1>
+            <p className="text-xs font-bold text-indigo-800">
+              Lot #{activeStock?.lotNumber} | Product: {activeStock?.productName} ({activeStock?.unit || 'units'})
+            </p>
+            <p className="text-[10px] text-slate-600 mt-0.5">
+              Arrival Date: {activeStock?.arrivalDate || activeStock?.date} | Printed: {new Date().toLocaleString()}
+            </p>
           </div>
           {activeStock && (
-            <div className="text-right text-xs">
-              <p className="font-bold text-base">Supplier: {activeStock.supplierName}</p>
-              <p>Product: {activeStock.productName} ({activeStock.unit})</p>
-              <p>Arrival Date: {activeStock.arrivalDate || activeStock.date}</p>
+            <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
+              <p className="font-bold text-slate-700">Supplier: <span className="font-black text-slate-900">{activeStock.supplierName}</span></p>
+              <p className="font-bold text-slate-700">Lot Clearance: <span className="font-black text-indigo-700">{lotClearanceRate}%</span></p>
             </div>
           )}
         </div>

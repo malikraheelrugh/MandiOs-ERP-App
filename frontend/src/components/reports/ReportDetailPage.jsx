@@ -588,10 +588,29 @@ export default function ReportDetailPage({ user }) {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto print:p-0 print:m-0 print:space-y-4">
+
+      {/* PRINT-ONLY MANDI OS LETTERHEAD */}
+      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — {config?.name || 'BUSINESS REPORT'}</h1>
+            <p className="text-xs font-bold text-indigo-800">
+              Audit Period: {startDate || asOfDate} to {endDate || asOfDate} | Tier: {config?.tier}
+            </p>
+            <p className="text-[10px] text-slate-600 mt-0.5">
+              Generated: {new Date().toLocaleString()} | User Role: {userRole}
+            </p>
+          </div>
+          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
+            <p className="font-bold text-slate-700">Total Records: <span className="font-black text-slate-900">{sortedRows?.length || 0} Entries</span></p>
+            <p className="font-bold text-slate-700">Status: <span className="font-black text-emerald-700">Audit Certified</span></p>
+          </div>
+        </div>
+      </div>
 
       {/* SECTION 1: Report Title & Purpose */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -628,7 +647,7 @@ export default function ReportDetailPage({ user }) {
       </div>
 
       {/* SECTION 2: Filter Bar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 print:hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-emerald-500" />
@@ -911,7 +930,7 @@ export default function ReportDetailPage({ user }) {
 
             {/* Chart Visualization if applicable */}
             {config.visualizationType === 'chart_and_table' && reportData?.chartData && reportData.chartData.length > 0 && (
-              <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+              <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 print:hidden">
                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-4">
                   Visual Trend Analytics
                 </h3>
@@ -1124,7 +1143,7 @@ export default function ReportDetailPage({ user }) {
       </div>
 
       {/* SECTION 4: Collapsible Report Details Panel */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm print:hidden">
         <button
           onClick={() => setShowMetadata(!showMetadata)}
           className="w-full p-4 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

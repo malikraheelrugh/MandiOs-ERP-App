@@ -3,7 +3,7 @@ import api from '../../utils/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { exportToCSV } from '../../utils/navigation';
 import { downloadLedgerPDF } from '../../utils/pdfExport';
-import { Download, Filter, Search, ArrowLeft, Calendar, User, DollarSign, RefreshCw, ArrowUpDown, ArrowDown, ArrowUp, FileText } from 'lucide-react';
+import { Download, Filter, Search, ArrowLeft, Calendar, User, DollarSign, RefreshCw, ArrowUpDown, ArrowDown, ArrowUp, FileText, Printer } from 'lucide-react';
 
 export default function CustomerLedgerPage() {
   const { t } = useLanguage();
@@ -167,11 +167,53 @@ export default function CustomerLedgerPage() {
 
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 transition-all"
+            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all"
           >
             <Download size={14} />
-            <span>Download PDF</span>
+            <span>PDF</span>
           </button>
+
+          <button
+            onClick={() => window.print()}
+            className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-[#4F46E5] hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 transition-all"
+          >
+            <Printer size={14} />
+            <span>Print Ledger</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Printable Letterhead & Account Summary */}
+      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — CUSTOMER ACCOUNT STATEMENT</h1>
+            <p className="text-xs font-bold text-indigo-800">
+              Customer: {customerDetails?.name || 'Walk-in / General Customer'} {customerDetails?.phone ? `| Phone: ${customerDetails.phone}` : ''}
+            </p>
+            <p className="text-[10px] text-slate-600 mt-0.5">
+              Period: {startDate || 'All-Time'} to {endDate || 'Present'} | Printed: {new Date().toLocaleString()}
+            </p>
+          </div>
+          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50">
+            <p className="text-[9px] uppercase font-bold text-slate-500">Closing Balance</p>
+            <p className="text-sm font-black text-slate-900">
+              Rs. {Math.abs(currentBalance).toLocaleString()} {currentBalance > 0 ? '(Dr - Receivable)' : currentBalance < 0 ? '(Cr - Advance)' : '(Nil)'}
+            </p>
+          </div>
+        </div>
+
+        {/* Print Summary Metrics Box */}
+        <div className="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-slate-300 text-center text-[10px]">
+          <div className="bg-slate-100 p-1.5 rounded">
+            <span className="font-bold text-slate-600">Total Purchases (Debit):</span> <span className="font-black text-slate-900">Rs. {totalDebit.toLocaleString()}</span>
+          </div>
+          <div className="bg-slate-100 p-1.5 rounded">
+            <span className="font-bold text-slate-600">Total Payments (Credit):</span> <span className="font-black text-slate-900">Rs. {totalCredit.toLocaleString()}</span>
+          </div>
+          <div className="bg-slate-100 p-1.5 rounded">
+            <span className="font-bold text-slate-600">Total Transactions:</span> <span className="font-black text-slate-900">{displayLedger.length} Records</span>
+          </div>
         </div>
       </div>
 

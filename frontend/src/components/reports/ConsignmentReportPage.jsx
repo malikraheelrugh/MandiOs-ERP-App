@@ -133,12 +133,16 @@ export default function ConsignmentReportPage() {
       </div>
 
       {/* Printable Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-300 pb-4 mb-6">
+      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-black uppercase tracking-wider">LAHORE SABZI & FRUIT MANDI BROKERAGE</h1>
-            <p className="text-sm font-bold text-indigo-700">Consignment Sales & Brokerage Turnover Summary</p>
-            <p className="text-xs text-slate-500 mt-1">Report Generated: {new Date().toLocaleString()}</p>
+            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — CONSIGNMENT SALES & TURNOVER REPORT</h1>
+            <p className="text-xs font-bold text-indigo-800">Date Range: {startDate || 'All Time'} to {endDate || 'Present'}</p>
+            <p className="text-[10px] text-slate-600 mt-0.5">Generated: {new Date().toLocaleString()}</p>
+          </div>
+          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
+            <p className="font-bold text-slate-700">Total Billed: <span className="font-black text-slate-900">Rs. {totalRevenue.toLocaleString()}</span></p>
+            <p className="font-bold text-indigo-700">Total Commission: <span className="font-black">Rs. {totalCommission.toLocaleString()}</span></p>
           </div>
         </div>
       </div>
@@ -309,6 +313,17 @@ export default function ConsignmentReportPage() {
                 ))
               )}
             </tbody>
+            {filteredSales.length > 0 && (
+              <tfoot>
+                <tr className="bg-slate-100 dark:bg-slate-800/90 font-bold border-t-2 border-slate-300 dark:border-slate-700 text-[11px] text-slate-900 dark:text-white">
+                  <td colSpan="6" className="py-3 px-4 font-black">TOTALS ({filteredSales.length} Invoices)</td>
+                  <td className="py-3 px-4 text-right font-black">{totalUnits.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right">-</td>
+                  <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">Rs. {totalRevenue.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right font-black text-indigo-600 dark:text-indigo-400">Rs. {totalCommission.toLocaleString()}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>

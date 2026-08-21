@@ -111,12 +111,17 @@ export default function AuditReportPage() {
       </div>
 
       {/* Printable Header */}
-      <div className="hidden print:block text-slate-900 border-b-2 border-slate-300 pb-4 mb-6">
+      <div className="hidden print:block text-slate-900 border-b-2 border-slate-900 pb-4 mb-4">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-black uppercase tracking-wider">LAHORE SABZI & FRUIT MANDI BROKERAGE</h1>
-            <p className="text-sm font-bold text-indigo-700">System Activity & Audit Statement Report</p>
-            <p className="text-xs text-slate-500 mt-1">Report Generated: {new Date().toLocaleString()}</p>
+            <h1 className="text-xl font-black uppercase tracking-wider">MANDI OS — SYSTEM ACTIVITY & AUDIT TRAIL STATEMENT</h1>
+            <p className="text-xs font-bold text-indigo-800">
+              Role: {roleFilter} | Action: {actionFilter} | Total Audit Records: {filteredLogs.length}
+            </p>
+            <p className="text-[10px] text-slate-600 mt-0.5">Report Generated: {new Date().toLocaleString()}</p>
+          </div>
+          <div className="text-right border border-slate-400 p-2 rounded bg-slate-50 text-[10px]">
+            <p className="font-bold text-slate-700">Security Status: <span className="font-black text-emerald-700">Verified & Logged</span></p>
           </div>
         </div>
       </div>
