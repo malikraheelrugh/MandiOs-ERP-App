@@ -1,6 +1,6 @@
 import { Sale, Product, Customer, Supplier, Ledger, AuditLog, StockEntry } from '../models/index.js';
 import { calculateCommission, getCommissionCalculationDetails } from '../utils/commissionService.js';
-import { buildTenantQuery, getTenantId } from '../utils/tenant.js';
+import { assertTenantOwnership, buildTenantQuery, getTenantId } from '../utils/tenant.js';
 
 export async function getSales(req, res) {
   try {
@@ -33,16 +33,19 @@ export async function addSale(req, res) {
     if (!stockEntry) {
       return res.status(404).json({ error: 'Supplier consignment/arrival not found.' });
     }
+    if (!assertTenantOwnership(req, stockEntry)) return res.status(404).json({ error: 'Supplier consignment/arrival not found.' });
 
     const product = await Product.findById(stockEntry.productId);
     if (!product) {
       return res.status(404).json({ error: 'Product not found.' });
     }
+    if (!assertTenantOwnership(req, product)) return res.status(404).json({ error: 'Product not found.' });
 
     const supplier = await Supplier.findById(stockEntry.supplierId);
     if (!supplier) {
       return res.status(404).json({ error: 'Supplier of this consignment not found.' });
     }
+    if (!assertTenantOwnership(req, supplier)) return res.status(404).json({ error: 'Supplier of this consignment not found.' });
 
     // Calculate total quantity requested in this sale batch
     let totalQtyRequested = 0;
@@ -134,6 +137,7 @@ export async function addSale(req, res) {
         if (!customer) {
           return res.status(404).json({ error: `Customer not found for ID: ${buyer.customerId}` });
         }
+        if (!assertTenantOwnership(req, customer)) return res.status(404).json({ error: 'Customer not found.' });
         saleData.customerId = customer.id || customer._id;
         saleData.customerName = customer.name;
 
@@ -226,12 +230,14 @@ export async function deleteSale(req, res) {
     if (!sale) {
       return res.status(404).json({ error: 'Sale record not found.' });
     }
+    if (!assertTenantOwnership(req, sale)) return res.status(404).json({ error: 'Sale record not found.' });
 
     const tenantId = getTenantId(req) || sale.tenantId || 'tenant_default_001';
     const { productId, customerId, quantity, totalAmount, productName, customerName, stockEntryId, saleRate } = sale;
 
     // 1. Revert product inventory (increase stock back)
     const product = await Product.findById(productId);
+    if (product && !assertTenantOwnership(req, product)) return res.status(404).json({ error: 'Sale record not found.' });
     if (product) {
       await Product.findByIdAndUpdate(productId, {
         currentQuantity: product.currentQuantity + quantity,
@@ -240,6 +246,7 @@ export async function deleteSale(req, res) {
 
     // 2. Revert customer balance
     const customer = await Customer.findById(customerId);
+    if (customer && !assertTenantOwnership(req, customer)) return res.status(404).json({ error: 'Sale record not found.' });
     if (customer) {
       const revertedCustBalance = customer.currentBalance - totalAmount;
       await Customer.findByIdAndUpdate(customerId, {
@@ -265,6 +272,7 @@ export async function deleteSale(req, res) {
     if (stockEntryId) {
       const stockEntry = await StockEntry.findById(stockEntryId);
       if (stockEntry) {
+        if (!assertTenantOwnership(req, stockEntry)) return res.status(404).json({ error: 'Sale record not found.' });
         const revertQty = quantity;
         const revertAmt = quantity * saleRate;
 
@@ -282,6 +290,7 @@ export async function deleteSale(req, res) {
         if (stockEntry.isSettled && stockEntry.supplierId) {
           const supplier = await Supplier.findById(stockEntry.supplierId);
           if (supplier) {
+            if (!assertTenantOwnership(req, supplier)) return res.status(404).json({ error: 'Sale record not found.' });
             const revertedSuppBalance = (supplier.currentBalance || 0) + revertAmt;
             const revertedTotalSupplied = Math.max(0, (supplier.totalSupplied || 0) - revertAmt);
             await Supplier.findByIdAndUpdate(stockEntry.supplierId, {

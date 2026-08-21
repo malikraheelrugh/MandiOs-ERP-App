@@ -1,5 +1,5 @@
 import { StockEntry, Product, Supplier, Ledger, AuditLog, Sale, ReturnRecord } from '../models/index.js';
-import { buildTenantQuery, getTenantId } from '../utils/tenant.js';
+import { assertTenantOwnership, buildTenantQuery, getTenantId } from '../utils/tenant.js';
 
 export async function getStockEntries(req, res) {
   try {
@@ -97,11 +97,13 @@ export async function addStockEntry(req, res) {
     if (!supplier) {
       return res.status(404).json({ error: 'Supplier not found.' });
     }
+    if (!assertTenantOwnership(req, supplier)) return res.status(404).json({ error: 'Supplier not found.' });
 
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({ error: 'Product not found.' });
     }
+    if (!assertTenantOwnership(req, product)) return res.status(404).json({ error: 'Product not found.' });
 
     const qty = Number(quantity);
 
@@ -161,6 +163,7 @@ export async function updateStockEntry(req, res) {
     if (!entry) {
       return res.status(404).json({ error: 'Stock entry not found.' });
     }
+    if (!assertTenantOwnership(req, entry)) return res.status(404).json({ error: 'Stock entry not found.' });
 
     const oldQty = entry.quantity;
     const oldProductId = entry.productId;
@@ -234,6 +237,7 @@ export async function deleteStockEntry(req, res) {
     if (!entry) {
       return res.status(404).json({ error: 'Stock entry not found.' });
     }
+    if (!assertTenantOwnership(req, entry)) return res.status(404).json({ error: 'Stock entry not found.' });
 
     const tenantId = getTenantId(req) || entry.tenantId || 'tenant_default_001';
     const { productId, supplierId, quantity, totalAmount, productName, supplierName } = entry;
@@ -299,6 +303,7 @@ export async function updateLotFinancials(req, res) {
     if (!entry) {
       return res.status(404).json({ error: 'Stock entry lot not found.' });
     }
+    if (!assertTenantOwnership(req, entry)) return res.status(404).json({ error: 'Stock entry lot not found.' });
 
     const [lotSales, lotReturns] = await Promise.all([
       Sale.find({ stockEntryId: id, isDeleted: { $ne: true } }),
@@ -410,6 +415,7 @@ export async function recordLotSettlement(req, res) {
     if (!entry) {
       return res.status(404).json({ error: 'Consignment lot not found.' });
     }
+    if (!assertTenantOwnership(req, entry)) return res.status(404).json({ error: 'Consignment lot not found.' });
 
     // Ensure amount is recorded only once and prevents duplicate entries
     if (entry.isSettled) {

@@ -9,7 +9,11 @@ import {
 import { BusinessSettings } from '../models/settings.js';
 import { generateSuggestedArthiCode, validateArthiCode } from '../utils/counter.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mandi-secret-key-123!';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required to authenticate requests.');
+}
 
 // 1. Get List of All Businesses (Enhanced with all required fields)
 export async function getBusinesses(req, res) {
@@ -98,8 +102,8 @@ export async function createBusiness(req, res) {
     const customTenantId = req.body.tenantId;
     const rawArthiCode = req.body.arthiCode;
 
-    if (!name || !email) {
-      return res.status(400).json({ error: 'Please fill in Business Name and Email.' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Please fill in Business Name, Email, and Owner Password.' });
     }
 
     // Process & validate Arthi Code (platform-wide unique, 2-5 uppercase alphanumeric)
@@ -161,7 +165,7 @@ export async function createBusiness(req, res) {
 
     // Create Owner User Account
     const salt = bcryptjs.genSaltSync(10);
-    const hashedPassword = bcryptjs.hashSync(password || 'admin123', salt);
+    const hashedPassword = bcryptjs.hashSync(password, salt);
 
     const ownerUser = await User.create({
       tenantId,

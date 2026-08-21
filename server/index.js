@@ -1,18 +1,20 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
+import 'dotenv/config';
 
 import { ensureDBConnected } from './config/db.js';
 import { seedDatabase } from './utils/seed.js';
 import apiRoutes from './routes/api.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('Server startup failed: JWT_SECRET is required in production.');
+  process.exit(1);
+}
 
 // --------------------------------------------------
 // Middleware
@@ -71,7 +73,7 @@ async function startServer() {
     } else {
       // In production, static assets are in dist directory
       const distPath = path.resolve(process.cwd(), 'dist');
-      app.use(express.static(distPath));
+      app.use(express.static(distPath)); 
       app.get('*', (req, res) => {
         res.sendFile(path.join(distPath, 'index.html'));
       });
@@ -90,9 +92,11 @@ async function startServer() {
       console.log(`MandiOS server running on http://0.0.0.0:${PORT}`);
     });
 
-    // Boot database connection and idempotent seed
+    // Seed only when explicitly enabled outside production.
     ensureDBConnected()
-      .then(() => seedDatabase())
+      .then(() => process.env.NODE_ENV === 'production' || process.env.ENABLE_DEMO_SEED !== 'true'
+        ? null
+        : seedDatabase())
       .then(() => console.log('MongoDB connected and verified successfully.'))
       .catch((err) => console.error('Database connection/seed notice:', err.message || err));
 

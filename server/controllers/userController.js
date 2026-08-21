@@ -1,7 +1,7 @@
 import bcryptjs from 'bcryptjs';
 import { User, Customer, Supplier, Employee, AuditLog, Ledger, Payment, StockEntry, Sale, Truck, ReturnRecord } from '../models/index.js';
 import { CommissionRule } from '../models/settings.js';
-import { buildTenantQuery, getTenantId } from '../utils/tenant.js';
+import { assertTenantOwnership, buildTenantQuery, getTenantId } from '../utils/tenant.js';
 import { peekNextKhataId, getNextKhataId, isKhataIdUnique, syncCounterIfNeeded } from '../utils/counter.js';
 
 // --- DATA INTEGRITY LINKED DATA HELPERS ---
@@ -288,6 +288,7 @@ export async function editClerk(req, res) {
     if (!clerk || clerk.role !== 'Clerk') {
       return res.status(404).json({ error: 'Clerk not found.' });
     }
+    if (!assertTenantOwnership(req, clerk)) return res.status(404).json({ error: 'Clerk not found.' });
 
     const updateData = { name, phone, address, status };
     if (email !== undefined) {
@@ -332,6 +333,7 @@ export async function deleteClerk(req, res) {
     if (!clerk || (clerk.role !== 'Clerk' && clerk.role?.toLowerCase() !== 'clerk')) {
       return res.status(404).json({ error: 'Clerk not found.' });
     }
+    if (!assertTenantOwnership(req, clerk)) return res.status(404).json({ error: 'Clerk not found.' });
 
     const tenantId = getTenantId(req) || clerk.tenantId || 'tenant_default_001';
     const now = new Date();
@@ -497,6 +499,7 @@ export async function editSupplier(req, res) {
     if (!supplier) {
       return res.status(404).json({ error: 'Supplier not found.' });
     }
+    if (!assertTenantOwnership(req, supplier)) return res.status(404).json({ error: 'Supplier not found.' });
 
     const tenantId = getTenantId(req) || supplier.tenantId || 'tenant_default_001';
     let updatedKhataId = supplier.khataId;
@@ -760,6 +763,7 @@ export async function editCustomer(req, res) {
     if (!customer) {
       return res.status(404).json({ error: 'Customer not found.' });
     }
+    if (!assertTenantOwnership(req, customer)) return res.status(404).json({ error: 'Customer not found.' });
 
     const tenantId = getTenantId(req) || customer.tenantId || 'tenant_default_001';
     let updatedKhataId = customer.khataId;
@@ -1015,6 +1019,7 @@ export async function restoreUser(req, res) {
     if (targetType === 'Supplier') {
       const supplier = await Supplier.findById(id);
       if (!supplier) return res.status(404).json({ error: 'Supplier not found.' });
+      if (!assertTenantOwnership(req, supplier)) return res.status(404).json({ error: 'Supplier not found.' });
       restoredName = supplier.name;
 
       await Supplier.findByIdAndUpdate(id, { isDeleted: false, deletedAt: null, deletedBy: null });
@@ -1037,6 +1042,7 @@ export async function restoreUser(req, res) {
     } else if (targetType === 'Customer') {
       const customer = await Customer.findById(id);
       if (!customer) return res.status(404).json({ error: 'Customer not found.' });
+      if (!assertTenantOwnership(req, customer)) return res.status(404).json({ error: 'Customer not found.' });
       restoredName = customer.name;
 
       await Customer.findByIdAndUpdate(id, { isDeleted: false, deletedAt: null, deletedBy: null });
@@ -1059,6 +1065,7 @@ export async function restoreUser(req, res) {
     } else if (targetType === 'Employee') {
       const employee = await Employee.findById(id);
       if (!employee) return res.status(404).json({ error: 'Employee not found.' });
+      if (!assertTenantOwnership(req, employee)) return res.status(404).json({ error: 'Employee not found.' });
       restoredName = employee.name;
 
       await Employee.findByIdAndUpdate(id, { isDeleted: false, deletedAt: null, deletedBy: null });
@@ -1066,6 +1073,7 @@ export async function restoreUser(req, res) {
       // User account (e.g. Clerk / Admin)
       const user = await User.findById(id);
       if (!user) return res.status(404).json({ error: 'User not found.' });
+      if (!assertTenantOwnership(req, user)) return res.status(404).json({ error: 'User not found.' });
       restoredName = user.name;
 
       if (user.email) {
@@ -1122,6 +1130,7 @@ export async function deleteUser(req, res) {
     // 1. Try User model
     const user = await User.findById(id);
     if (user) {
+      if (!assertTenantOwnership(req, user)) return res.status(404).json({ error: 'User not found.' });
       found = true;
       deletedName = user.name || user.email;
 
@@ -1159,10 +1168,12 @@ export async function deleteUser(req, res) {
 
       const linkedSupplier = await Supplier.findOne({ userId: id });
       if (linkedSupplier) {
+        if (!assertTenantOwnership(req, linkedSupplier)) return res.status(404).json({ error: 'User not found.' });
         await Supplier.findByIdAndUpdate(linkedSupplier.id || linkedSupplier._id, { isDeleted: true, deletedAt: now, deletedBy });
       }
       const linkedCustomer = await Customer.findOne({ userId: id });
       if (linkedCustomer) {
+        if (!assertTenantOwnership(req, linkedCustomer)) return res.status(404).json({ error: 'User not found.' });
         await Customer.findByIdAndUpdate(linkedCustomer.id || linkedCustomer._id, { isDeleted: true, deletedAt: now, deletedBy });
       }
     }
@@ -1171,6 +1182,7 @@ export async function deleteUser(req, res) {
     if (!found) {
       const supplier = await Supplier.findById(id);
       if (supplier) {
+        if (!assertTenantOwnership(req, supplier)) return res.status(404).json({ error: 'User record not found.' });
         found = true;
         deletedName = supplier.name;
 
@@ -1194,6 +1206,7 @@ export async function deleteUser(req, res) {
     if (!found) {
       const customer = await Customer.findById(id);
       if (customer) {
+        if (!assertTenantOwnership(req, customer)) return res.status(404).json({ error: 'User record not found.' });
         found = true;
         deletedName = customer.name;
 
@@ -1217,6 +1230,7 @@ export async function deleteUser(req, res) {
     if (!found) {
       const employee = await Employee.findById(id);
       if (employee) {
+        if (!assertTenantOwnership(req, employee)) return res.status(404).json({ error: 'User record not found.' });
         found = true;
         deletedName = employee.name;
         await Employee.findByIdAndUpdate(id, { isDeleted: true, deletedAt: now, deletedBy });

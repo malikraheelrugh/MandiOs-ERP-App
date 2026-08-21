@@ -1,5 +1,5 @@
 import { ReturnRecord, Sale, Customer, Supplier, Product, StockEntry, Ledger, AuditLog, Business } from '../models/index.js';
-import { buildTenantQuery, getTenantId } from '../utils/tenant.js';
+import { assertTenantOwnership, buildTenantQuery, getTenantId } from '../utils/tenant.js';
 
 // Helper to compute customer crate statistics
 async function computeCustomerCrateStats(tenantQuery) {
@@ -157,6 +157,7 @@ export async function getReturnById(req, res) {
     if (!ret) {
       return res.status(404).json({ error: 'Return record not found.' });
     }
+    if (!assertTenantOwnership(req, ret)) return res.status(404).json({ error: 'Return record not found.' });
     res.json(ret);
   } catch (err) {
     console.error('getReturnById error:', err);
@@ -186,6 +187,7 @@ export async function createReturn(req, res) {
     if (!customer) {
       return res.status(404).json({ error: 'Customer not found.' });
     }
+    if (!assertTenantOwnership(req, customer)) return res.status(404).json({ error: 'Customer not found.' });
 
     if (!saleId) {
       return res.status(400).json({ error: 'Please select an original sale for produce return.' });
@@ -195,6 +197,7 @@ export async function createReturn(req, res) {
     if (!sale) {
       return res.status(404).json({ error: 'Original sale record not found.' });
     }
+    if (!assertTenantOwnership(req, sale)) return res.status(404).json({ error: 'Original sale record not found.' });
 
     let product = null;
     let stockEntry = null;
@@ -238,6 +241,7 @@ export async function createReturn(req, res) {
 
     if (sale.productId) {
       product = await Product.findById(sale.productId);
+      if (product && !assertTenantOwnership(req, product)) return res.status(404).json({ error: 'Original sale record not found.' });
       if (product) {
         unit = product.unit || 'Crate';
       }
@@ -262,6 +266,7 @@ export async function createReturn(req, res) {
 
     if (sale.stockEntryId) {
       stockEntry = await StockEntry.findById(sale.stockEntryId);
+      if (stockEntry && !assertTenantOwnership(req, stockEntry)) return res.status(404).json({ error: 'Original sale record not found.' });
       if (stockEntry) {
         const stockStatus = (stockEntry.status || stockEntry.approvalStatus || '').trim().toLowerCase();
         if (blockedStatuses.includes(stockStatus) && stockStatus !== 'approved' && stockStatus !== 'accepted') {
@@ -344,6 +349,7 @@ export async function approveReturn(req, res) {
     if (!returnRecord) {
       return res.status(404).json({ error: 'Return record not found.' });
     }
+    if (!assertTenantOwnership(req, returnRecord)) return res.status(404).json({ error: 'Return record not found.' });
 
     if (returnRecord.status === 'Approved') {
       return res.status(400).json({ error: 'Return has already been approved.' });
@@ -359,6 +365,7 @@ export async function approveReturn(req, res) {
       if (returnRecord.productId) {
         const product = await Product.findById(returnRecord.productId);
         if (product) {
+          if (!assertTenantOwnership(req, product)) return res.status(404).json({ error: 'Return record not found.' });
           await Product.findByIdAndUpdate(product.id || product._id, {
             currentQuantity: product.currentQuantity + qty
           });
@@ -368,6 +375,7 @@ export async function approveReturn(req, res) {
       // 1b. Update Customer Balance (Credit customer - they owe us less)
       const customer = await Customer.findById(returnRecord.customerId);
       if (customer) {
+        if (!assertTenantOwnership(req, customer)) return res.status(404).json({ error: 'Return record not found.' });
         const newCustBalance = customer.currentBalance - retAmt;
         await Customer.findByIdAndUpdate(customer.id || customer._id, {
           totalPurchases: Math.max(0, customer.totalPurchases - retAmt),
@@ -393,6 +401,7 @@ export async function approveReturn(req, res) {
       if (returnRecord.stockEntryId) {
         const stockEntry = await StockEntry.findById(returnRecord.stockEntryId);
         if (stockEntry) {
+          if (!assertTenantOwnership(req, stockEntry)) return res.status(404).json({ error: 'Return record not found.' });
           const supplierGrossValue = Math.round((returnRecord.grossReturnAmount || (qty * (returnRecord.saleRate || 0))) * 100) / 100;
 
           // Increase remaining consignment quantity back in that lot so it can be resold
@@ -417,6 +426,7 @@ export async function approveReturn(req, res) {
           if (stockEntry.isSettled && supplierGrossValue > 0 && stockEntry.supplierId) {
             const supplier = await Supplier.findById(stockEntry.supplierId);
             if (supplier) {
+              if (!assertTenantOwnership(req, supplier)) return res.status(404).json({ error: 'Return record not found.' });
               const newSupplierBalance = (supplier.currentBalance || 0) + supplierGrossValue;
               const newTotalSupplied = Math.max(0, (supplier.totalSupplied || 0) - supplierGrossValue);
 
@@ -483,6 +493,7 @@ export async function rejectReturn(req, res) {
     if (!returnRecord) {
       return res.status(404).json({ error: 'Return record not found.' });
     }
+    if (!assertTenantOwnership(req, returnRecord)) return res.status(404).json({ error: 'Return record not found.' });
 
     if (returnRecord.status === 'Approved') {
       return res.status(400).json({ error: 'Cannot reject an already approved return.' });
@@ -527,6 +538,7 @@ export async function updateReturn(req, res) {
     if (!existing) {
       return res.status(404).json({ error: 'Return record not found.' });
     }
+    if (!assertTenantOwnership(req, existing)) return res.status(404).json({ error: 'Return record not found.' });
 
     if (existing.status !== 'Draft') {
       return res.status(400).json({ error: 'Only Draft returns can be edited.' });
@@ -585,6 +597,7 @@ export async function deleteReturn(req, res) {
     if (!existing) {
       return res.status(404).json({ error: 'Return record not found.' });
     }
+    if (!assertTenantOwnership(req, existing)) return res.status(404).json({ error: 'Return record not found.' });
 
     if (existing.status === 'Approved') {
       return res.status(400).json({ error: 'Approved returns cannot be deleted directly.' });

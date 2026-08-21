@@ -2,7 +2,11 @@ import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
 import { User, Business, AuditLog, Customer, Supplier } from '../models/index.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mandi-secret-key-123!';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required to authenticate requests.');
+}
 
 export async function login(req, res) {
   try {
@@ -53,14 +57,6 @@ export async function login(req, res) {
         }
       }
 
-      // Demo seed fallback by Khata ID only
-      if (!user) {
-        if (role === 'Customer' && cleanUpper === 'SFM-C-1') {
-          user = allUsers.find(u => u.role === 'Customer');
-        } else if (role === 'Supplier' && cleanUpper === 'SFM-S-1') {
-          user = allUsers.find(u => u.role === 'Supplier');
-        }
-      }
     } else {
       // For Admin, Clerk, and Super Admin, lookup strictly by email
       user = allUsers.find(u => 
@@ -97,29 +93,13 @@ export async function login(req, res) {
       return res.status(401).json({ error: `Selected role (${role}) does not match your registered profile.` });
     }
 
-    // Password validation with bcrypt + fallback
+    // Password validation requires a stored bcrypt hash.
     let isMatch = false;
     if (user.password) {
       try {
         isMatch = bcryptjs.compareSync(password.trim(), user.password);
       } catch (e) {
         isMatch = false;
-      }
-    }
-
-    if (!isMatch) {
-      if (password.trim() === user.password) {
-        isMatch = true;
-      } else if (cleanLower === 'superadmin@mandios.com' && password.trim() === 'super123') {
-        isMatch = true;
-      } else if (cleanLower === 'admin@mandi.com' && password.trim() === 'admin123') {
-        isMatch = true;
-      } else if (cleanLower === 'clerk@mandi.com' && password.trim() === 'clerk123') {
-        isMatch = true;
-      } else if ((cleanLower === 'supplier1@mandi.com' || cleanUpper === 'SFM-S-1') && password.trim() === 'supplier123') {
-        isMatch = true;
-      } else if ((cleanLower === 'customer1@mandi.com' || cleanUpper === 'SFM-C-1') && password.trim() === 'customer123') {
-        isMatch = true;
       }
     }
 
