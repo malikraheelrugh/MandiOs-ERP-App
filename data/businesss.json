@@ -19,7 +19,7 @@
     "id": "40p6tvwdc",
     "_id": "40p6tvwdc",
     "createdAt": "2026-08-19T15:26:56.381Z",
-    "updatedAt": "2026-08-20T17:12:06.181Z",
+    "updatedAt": "2026-08-21T10:24:48.744Z",
     "name": "Sabzi & Fruit Mandi Trade Brokerage",
     "arthiCode": "MR",
     "plan": "Enterprise",
@@ -45,13 +45,13 @@
     "subscriptionStatus": "Active",
     "subscriptionStartDate": "2026-08-20",
     "subscriptionExpiresAt": "2027-08-20",
-    "subscriptionExpiryDate": "2027-08-20",
+    "subscriptionExpiryDate": "2030-12-31",
     "maxUsers": 10,
     "isActive": true,
     "isDeleted": false,
     "id": "3pwznbzpv",
     "_id": "3pwznbzpv",
     "createdAt": "2026-08-20T17:21:04.399Z",
-    "updatedAt": "2026-08-20T17:21:04.399Z"
+    "updatedAt": "2026-08-21T10:24:48.749Z"
   }
 ]
