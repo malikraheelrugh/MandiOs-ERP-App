@@ -10,8 +10,8 @@ let useMongoDB = !!mongoUri;
 
 // Set short timeout to fail fast if MongoDB is unreachable
 const connectOptions = {
-  serverSelectionTimeoutMS: 3000,
-  connectTimeoutMS: 3000,
+  serverSelectionTimeoutMS: 10000,
+  connectTimeoutMS: 10000,
 };
 
 let connectPromise = null;
